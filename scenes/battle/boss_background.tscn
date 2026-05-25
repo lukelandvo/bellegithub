@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://bjrody3j34gt5"]
+
+[ext_resource type="Shader" uid="uid://c2an780vdoen1" path="res://shaders/battle_background_boss.gdshader" id="1_jg7d4"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_xuo3j"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_l4qrb"]
+render_priority = 0
+shader = ExtResource("1_jg7d4")
+shader_parameter/color_base = Color(0.25, 0.02, 0.04, 1)
+shader_parameter/color_primary = Color(0.55, 0.08, 0.12, 1)
+shader_parameter/color_ghost = Color(0.65, 0.12, 0.18, 1)
+shader_parameter/diamond_scale = 1.8
+shader_parameter/scroll_speed = 0.3
+shader_parameter/ghost_opacity = 0.35
+shader_parameter/wave_strength = 0.06
+shader_parameter/wave_speed = 1.1
+shader_parameter/wave_frequency = 4.5
+shader_parameter/brightness_pulse = 0.08
+
+[node name="Node3D" type="Node3D" unique_id=1319210137]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=826043515]
+transform = Transform3D(47.661476, 0, 0, 0, -25.653564, 0, 0, 0, 1, 0, 0, -8.971355)
+mesh = SubResource("QuadMesh_xuo3j")
+surface_material_override/0 = SubResource("ShaderMaterial_l4qrb")

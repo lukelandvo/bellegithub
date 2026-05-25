@@ -1,0 +1,31 @@
+~ start
+if FlagService.get_bool("frank_defeated")
+	=> defeated
+....
+..I'm Frank. You are?
+C'mon, can't you at least say your name?
+=> fight
+
+~ fight
+do FlagService.set_flag("debug_fight_reached")
+=> END
+
+~ post_defeat
+...This is my first defeat.
+Frank is now just Frank.
+I know you've been asking around, so I'll tell you about Giant Step.
+It...seems...
+to be quite a powerful spot.
+Some kind of special power is stored there
+that allows certain people to perform wondrous feats.
+However...a monster sucked up all the energy at that spot.
+It's difficult to get to Giant Step. That's all I know.
+I suggest you collect more information on your own.
+The entrace to the path leading to Giant Step is behind the touring entertainer's shack.
+Pirkle, the Mayor of Onett, has a key to the shack.
+You've become stronger than I! Your adventure is just beginning....
+=> END
+
+~ defeated
+You've become stronger than I! Your adventure is just beginning...
+=> END

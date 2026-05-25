@@ -1,0 +1,151 @@
+[gd_scene format=3 uid="uid://dk5uwiridqynj"]
+
+[ext_resource type="Script" uid="uid://dhwqwuq02xqch" path="res://scripts/BattleManager.gd" id="1_lpir7"]
+[ext_resource type="Resource" path="res://resources/playerstats.tres" id="2_6vh42"]
+[ext_resource type="PackedScene" uid="uid://dbxa0rg84utp1" path="res://scenes/battle_background.tscn" id="3_a12nh"]
+[ext_resource type="FontFile" uid="uid://dik1uuxdjlno8" path="res://fonts/Apple_Kid.ttf" id="5_6vh42"]
+[ext_resource type="FontFile" uid="uid://bdnhsvgqawgnj" path="res://fonts/PressStart2P-Regular.ttf" id="6_4k1nj"]
+[ext_resource type="Script" uid="uid://dg4nko7fv1c4a" path="res://scripts/battleui.gd" id="6_6vh42"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_4k1nj"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6vh42"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 10
+border_width_top = 10
+border_width_right = 10
+border_width_bottom = 10
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="LabelSettings" id="LabelSettings_4k1nj"]
+font = ExtResource("5_6vh42")
+font_size = 52
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lpir7"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 10
+border_width_top = 10
+border_width_right = 10
+border_width_bottom = 10
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4k1nj"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="Node3D" type="Node3D" unique_id=485202938]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.73135495, 0, 0)
+
+[node name="BattleManager" type="Node" parent="." unique_id=149413346 groups=["battle_manager"]]
+script = ExtResource("1_lpir7")
+player_stats = ExtResource("2_6vh42")
+enemy_spacing = 3.0
+default_background = ExtResource("3_a12nh")
+debug_full_heal = true
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1593091403]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.23794162, 1.3416891, 4.738293)
+current = true
+
+[node name="World" type="Node" parent="." unique_id=1902956717]
+
+[node name="Background" type="Node" parent="World" unique_id=1929785367]
+
+[node name="Lighting" type="Node" parent="World" unique_id=2004010966]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="World/Lighting" unique_id=1796752338]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="World" unique_id=2055164527]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/StaticBody3D" unique_id=1374519888]
+transform = Transform3D(-0.082967445, 0, 25.546854, 0, -0.5, 0, -7.335586, 0, -0.2889418, -1.3052287, -1.0691912, 0)
+shape = SubResource("BoxShape3D_4k1nj")
+
+[node name="SpawnPoints" type="Node" parent="." unique_id=1076244629]
+
+[node name="EnemySpawnCenter" type="Node3D" parent="SpawnPoints" unique_id=2109943257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8913604, -0.16073525, 0.4673581)
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1696618677]
+script = ExtResource("6_6vh42")
+menu_selector = "Ð"
+
+[node name="MessageBox" type="PanelContainer" parent="UI" unique_id=1074287969]
+custom_minimum_size = Vector2(0, 100)
+anchors_preset = -1
+anchor_right = 1.0
+offset_left = 67.0
+offset_top = 36.0
+offset_right = -52.0
+offset_bottom = 136.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_6vh42")
+
+[node name="MessageLabel" type="Label" parent="UI/MessageBox" unique_id=1013011676]
+layout_mode = 2
+label_settings = SubResource("LabelSettings_4k1nj")
+autowrap_mode = 3
+
+[node name="StatusBox" type="PanelContainer" parent="UI" unique_id=406345377]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -690.0
+offset_top = -167.0
+offset_right = -550.0
+offset_bottom = -46.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_lpir7")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/StatusBox" unique_id=764035657]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="UI/StatusBox/VBoxContainer" unique_id=578282784]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("6_4k1nj")
+text = "NESS"
+horizontal_alignment = 1
+
+[node name="HPLabel" type="Label" parent="UI/StatusBox/VBoxContainer" unique_id=1763200506]
+layout_mode = 2
+text = "HP"
+horizontal_alignment = 1
+
+[node name="PPLabel" type="Label" parent="UI/StatusBox/VBoxContainer" unique_id=1998366149]
+layout_mode = 2
+text = "PP"
+horizontal_alignment = 1
+vertical_alignment = 2
+
+[node name="ActionMenu" type="PanelContainer" parent="UI" unique_id=865547757]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -512.0
+offset_top = -470.0
+offset_right = -472.0
+offset_bottom = -430.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(2.2465634, 1.5145019)
+theme_override_styles/panel = SubResource("StyleBoxFlat_4k1nj")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/ActionMenu" unique_id=377674062]
+layout_mode = 2

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemySlot" format=3 uid="uid://b3s58ldiwajsd"]
+
+[ext_resource type="PackedScene" uid="uid://cf0s8eq0u0alb" path="res://assets/models/characters/test/frank/frank.tscn" id="1_memdy"]
+[ext_resource type="Script" uid="uid://c6pa2wmkiodlf" path="res://scripts/battle/EnemySlot.gd" id="1_o7oul"]
+[ext_resource type="Resource" uid="uid://du4vngnx1x2jl" path="res://assets/models/characters/test/frank/frank_stats.tres" id="3_2b4ej"]
+
+[resource]
+script = ExtResource("1_o7oul")
+display_name = "Frank"
+victory_flag = "frank_defeated"
+stats = ExtResource("3_2b4ej")
+scene = ExtResource("1_memdy")
+metadata/_custom_type_script = "uid://c6pa2wmkiodlf"

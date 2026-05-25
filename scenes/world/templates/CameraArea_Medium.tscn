@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3 uid="uid://medium_camera_area"]
+
+[ext_resource type="Script" path="res://scripts/world/camera_area.gd" id="1"]
+
+[node name="CameraArea_Medium" type="Node"]
+script = ExtResource("1")
+area_index = 0
+use_bounds = true
+min_x = -20.0
+max_x = 20.0
+min_z = -20.0
+max_z = 20.0
+override_offset = false
+offset_x = 0.0
+offset_y = 1.647
+offset_z = 9.0
+rotation_x = -15.4
+rotation_y = 0.0

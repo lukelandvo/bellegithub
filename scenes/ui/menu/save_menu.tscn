@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ciceqfaphq2vw"]
+
+[ext_resource type="Script" uid="uid://bijky0exv6jcx" path="res://scripts/ui/save_menu.gd" id="1_gbvrq"]
+
+[node name="Control" type="CanvasLayer" unique_id=1226086981]
+script = ExtResource("1_gbvrq")

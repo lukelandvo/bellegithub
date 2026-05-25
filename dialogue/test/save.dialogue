@@ -1,0 +1,11 @@
+~ start
+LukeLand: Would you like to save your progress?
+- Yes please.
+    do FlagService.set_flag("wants_save")
+    => END
+- Not right now.
+    => END
+
+~ save_confirm
+LukeLand: Your progress has been saved!
+=> END

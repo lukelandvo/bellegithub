@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EncounterRoster" format=3 uid="uid://dxg6r2n7rc4pk"]
+
+[ext_resource type="Script" uid="uid://c6pa2wmkiodlf" path="res://scripts/battle/EnemySlot.gd" id="1_2yedx"]
+[ext_resource type="Resource" uid="uid://b3s58ldiwajsd" path="res://assets/models/characters/test/frank/frank_enemy.tres" id="2_c8yy2"]
+[ext_resource type="Script" uid="uid://dsh7swvu6mij4" path="res://scripts/battle/EncounterRoster.gd" id="2_i1swn"]
+
+[resource]
+script = ExtResource("2_i1swn")
+enemies = Array[ExtResource("1_2yedx")]([ExtResource("2_c8yy2")])
+metadata/_custom_type_script = "uid://dsh7swvu6mij4"

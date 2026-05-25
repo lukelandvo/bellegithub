@@ -1,0 +1,16 @@
+[remap]
+
+importer="dialogue_manager"
+importer_version=15
+type="Resource"
+uid="uid://ck5fh4jnf2axr"
+path="res://.godot/imported/frank.dialogue-80b1d2c0cd0bc15c4d7edf7ef8dc24f8.tres"
+
+[deps]
+
+source_file="res://dialogue/test/frank.dialogue"
+dest_files=["res://.godot/imported/frank.dialogue-80b1d2c0cd0bc15c4d7edf7ef8dc24f8.tres"]
+
+[params]
+
+defaults=true

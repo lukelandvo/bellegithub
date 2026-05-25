@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://dbxa0rg84utp1"]
+
+[ext_resource type="Shader" uid="uid://b3uqxcklv2eu3" path="res://shaders/battle_background.gdshader" id="1_pf40u"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_xuo3j"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_l4qrb"]
+render_priority = 0
+shader = ExtResource("1_pf40u")
+shader_parameter/main_color = Color(0.6, 0, 0.533, 1)
+shader_parameter/pixel_amount = 82.2730034329675
+shader_parameter/color_steps = 16.322000680294998
+shader_parameter/resolution_ratio = 0.5
+
+[node name="Node3D" type="Node3D" unique_id=1319210137]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=826043515]
+transform = Transform3D(47.661476, 0, 0, 0, -25.653564, 0, 0, 0, 1, 0, 0, -8.971355)
+mesh = SubResource("QuadMesh_xuo3j")
+surface_material_override/0 = SubResource("ShaderMaterial_l4qrb")

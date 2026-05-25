@@ -1,0 +1,72 @@
+[gd_scene format=3 uid="uid://b73mbvvcjw74r"]
+
+[ext_resource type="Script" uid="uid://ku3dqd4bhpv4" path="res://scripts/ui/menu.gd" id="1_7w7rl"]
+
+[node name="Control" type="Control" unique_id=500369597]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7w7rl")
+
+[node name="Dimmer" type="ColorRect" parent="." unique_id=102244732]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0)
+
+[node name="Ignore" type="Node3D" parent="." unique_id=1289002831]
+
+[node name="Window" type="PanelContainer" parent="Ignore" unique_id=1075214018]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Ignore/Window" unique_id=990938234]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Ignore/Window/MarginContainer" unique_id=1586069513]
+layout_mode = 2
+
+[node name="TabBar" type="HBoxContainer" parent="Ignore/Window/MarginContainer/VBoxContainer" unique_id=289310878]
+layout_mode = 2
+
+[node name="TabParty" type="Button" parent="Ignore/Window/MarginContainer/VBoxContainer/TabBar" unique_id=1654439462]
+layout_mode = 2
+text = "Party"
+
+[node name="TabInventory" type="Button" parent="Ignore/Window/MarginContainer/VBoxContainer/TabBar" unique_id=1919532597]
+layout_mode = 2
+text = "Inventory"
+
+[node name="TabEquipment" type="Button" parent="Ignore/Window/MarginContainer/VBoxContainer/TabBar" unique_id=150436451]
+layout_mode = 2
+text = "Equipment"
+
+[node name="TabActions" type="Button" parent="Ignore/Window/MarginContainer/VBoxContainer/TabBar" unique_id=1533218464]
+layout_mode = 2
+text = "Actions"
+
+[node name="TabLoad" type="Button" parent="Ignore/Window/MarginContainer/VBoxContainer/TabBar" unique_id=149177461]
+process_mode = 3
+layout_mode = 2
+text = "Load
+"
+
+[node name="Divider" type="ColorRect" parent="Ignore/Window/MarginContainer/VBoxContainer" unique_id=79780489]
+layout_mode = 2
+
+[node name="Content" type="MarginContainer" parent="Ignore/Window/MarginContainer/VBoxContainer" unique_id=439459450]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Ignore/Window/MarginContainer/VBoxContainer" unique_id=1755072406]
+layout_mode = 2
+
+[node name="FooterHint" type="Label" parent="Ignore/Window/MarginContainer/VBoxContainer/Footer" unique_id=73198289]
+layout_mode = 2

@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://c1iftgu5gk0vk"]
+
+[ext_resource type="PackedScene" uid="uid://bqge3fufkj4td" path="res://scenes/characters/player.tscn" id="1_tt8nk"]
+[ext_resource type="Script" uid="uid://biah5fxmowy0j" path="res://scripts/world/camera.gd" id="2_6r0uj"]
+[ext_resource type="Script" uid="uid://b7ruubqkkdume" path="res://scripts/world/TransitionManager.gd" id="3_j0r68"]
+[ext_resource type="Script" uid="uid://c6wxtu0jy22o0" path="res://scripts/world/CinematicManager.gd" id="4_j0vxu"]
+[ext_resource type="Script" uid="uid://cn2qhtj037jkg" path="res://scripts/world/SceneLoader.gd" id="5_ggrwn"]
+[ext_resource type="PackedScene" uid="uid://bu8ry2i1pi5qj" path="res://scenes/world/Critter Canyon/CC_area1.tscn" id="6_6r0uj"]
+[ext_resource type="PackedScene" uid="uid://bepwck26waatq" path="res://scenes/battle/battle.tscn" id="7_j0vxu"]
+
+[node name="Main" type="Node3D" unique_id=1146602761]
+
+[node name="SceneRoot" type="Node3D" parent="." unique_id=691808963]
+
+[node name="Player" parent="." unique_id=1086701732 groups=["player"] instance=ExtResource("1_tt8nk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24862385, 0)
+idle_animation_1_repeats = 1
+idle_animation_2_repeats = 2
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1290492643 node_paths=PackedStringArray("target")]
+script = ExtResource("2_6r0uj")
+target = NodePath("../Player")
+rotation_follow_speed = 5.915
+offset_y = 1.3
+offset_z = 2.0
+use_bounds = false
+
+[node name="Managers" type="Node" parent="." unique_id=1052118195]
+
+[node name="TransitionManager" type="Node" parent="Managers" unique_id=109593531]
+script = ExtResource("3_j0r68")
+
+[node name="CinematicManager" type="Node" parent="Managers" unique_id=2033823521 node_paths=PackedStringArray("transition_manager", "player")]
+script = ExtResource("4_j0vxu")
+transition_manager = NodePath("../TransitionManager")
+player = NodePath("../../Player")
+
+[node name="SceneLoader" type="Node" parent="Managers" unique_id=1481649445 node_paths=PackedStringArray("scene_root", "player", "camera", "transition_manager", "cinematic_manager")]
+script = ExtResource("5_ggrwn")
+scene_root = NodePath("../../SceneRoot")
+player = NodePath("../../Player")
+camera = NodePath("../../Camera3D")
+transition_manager = NodePath("../TransitionManager")
+cinematic_manager = NodePath("../CinematicManager")
+initial_scene = ExtResource("6_6r0uj")
+initial_scene_id = "CC_area1"
+battle_scene = ExtResource("7_j0vxu")

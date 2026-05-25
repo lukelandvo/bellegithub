@@ -1,0 +1,7 @@
+~ start
+Dad: Are you ready to go?
+- Yes, let's go!
+    do FlagService.set_flag("recruited_dad")
+    => END
+- Not yet.
+    => END

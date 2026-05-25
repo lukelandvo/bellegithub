@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://c1iftgu5gk0vk"]
+
+[ext_resource type="PackedScene" uid="uid://bqge3fufkj4td" path="res://scenes/characters/player.tscn" id="1_37g75"]
+[ext_resource type="Script" uid="uid://b7ruubqkkdume" path="res://scripts/world/TransitionManager.gd" id="3_1626j"]
+[ext_resource type="Script" uid="uid://biah5fxmowy0j" path="res://scripts/world/camera.gd" id="3_p2p2d"]
+[ext_resource type="Script" uid="uid://c6wxtu0jy22o0" path="res://scripts/world/CinematicManager.gd" id="4_27dlr"]
+[ext_resource type="Script" uid="uid://cn2qhtj037jkg" path="res://scripts/world/SceneLoader.gd" id="5_1nm11"]
+
+[node name="Main" type="Node3D" unique_id=1146602761]
+
+[node name="SceneRoot" type="Node3D" parent="." unique_id=691808963]
+
+[node name="Player" parent="." unique_id=1086701732 instance=ExtResource("1_37g75")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24862385, 0)
+idle_animation_1_repeats = 1
+idle_animation_2_repeats = 2
+blend_idle = 0.4
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1290492643 node_paths=PackedStringArray("target")]
+script = ExtResource("3_p2p2d")
+target = NodePath("../Player")
+offset_y = 5.0
+use_bounds = false
+
+[node name="Managers" type="Node" parent="." unique_id=1052118195]
+
+[node name="TransitionManager" type="Node" parent="Managers" unique_id=109593531]
+script = ExtResource("3_1626j")
+
+[node name="CinematicManager" type="Node" parent="Managers" unique_id=2033823521 node_paths=PackedStringArray("transition_manager", "player")]
+script = ExtResource("4_27dlr")
+transition_manager = NodePath("../TransitionManager")
+player = NodePath("../../Player")
+
+[node name="SceneLoader" type="Node" parent="Managers" unique_id=1481649445]
+script = ExtResource("5_1nm11")
