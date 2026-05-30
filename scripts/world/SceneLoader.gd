@@ -1,5 +1,9 @@
 # SceneLoader.gd
 # Node in main.tscn — owns scene loading, unloading, and spawn points.
+#
+# v4.6: _load_from_save now resets _save_loading = false on all early-return
+# error paths, preventing follower respawns from being suppressed in
+# subsequent scene loads for the rest of the session.
 
 extends Node
 
@@ -24,10 +28,6 @@ extends Node
 @export_group("Battle")
 @export var battle_scene: PackedScene
 
-# ---------------------------------------------------------------------------
-# Scene Registry — maps scene_id strings to PackedScene paths
-# Add an entry here for every scene that can be restored from a save.
-# ---------------------------------------------------------------------------
 const SCENE_REGISTRY: Dictionary = {
 	"CC_area1": "res://scenes/world/Critter Canyon/CC_area1.tscn",
 	"cc_visitor": "res://scenes/world/Critter Canyon/cc_visitor.tscn",
@@ -58,7 +58,7 @@ func _ready() -> void:
 func _run_intro() -> void:
 	_load_scene_internal(initial_scene, initial_spawn_point)
 	current_scene_id = initial_scene_id
-	print("SceneLoader: _run_intro set current_scene_id to '%s'" % current_scene_id)
+	if OS.is_debug_build(): print("SceneLoader: _run_intro set current_scene_id to '%s'" % current_scene_id)
 	if player:
 		player.disable_movement()
 	await get_tree().process_frame
@@ -113,12 +113,11 @@ func load_battle(_encounter: Resource) -> void:
 
 	_battle_loading = true
 
-	# Freeze and lock everything immediately — before any awaits
 	if player:
 		player.disable_movement()
 	_freeze_world_entities()
+	FollowerManager.hide_followers()
 
-	# Store pre-battle state
 	if player:
 		_pre_battle_position = player.global_position
 		_pre_battle_rotation = player.rotation.y
@@ -141,26 +140,23 @@ func load_battle(_encounter: Resource) -> void:
 	_load_scene_internal(battle_scene, "", true)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	var bm = get_tree().get_first_node_in_group("battle_manager")
+	if bm and bm.has_signal("battle_finished"):
+		if not bm.battle_finished.is_connected(end_battle):
+			bm.battle_finished.connect(end_battle, CONNECT_ONE_SHOT)
 	await get_tree().create_timer(0.3).timeout
 	await transition_manager.fade_in()
 	_battle_loading = false
 
-# ---------------------------------------------------------------------------
-# Freeze all world entities and lock all interaction prompts
-# ---------------------------------------------------------------------------
-
 func _freeze_world_entities() -> void:
-	# Lock and freeze NPCs
 	for npc in get_tree().get_nodes_in_group("npc"):
 		npc.set_process(false)
 		npc.set_physics_process(false)
 		if npc.get("anim_player") and npc.anim_player:
 			npc.anim_player.pause()
-		# Lock interaction area so prompt can never show again during battle
 		if npc.get("interaction_area") and npc.interaction_area:
 			if npc.interaction_area.has_method("lock"):
 				npc.interaction_area.lock()
-	# Freeze and lock world enemies
 	for enemy in get_tree().get_nodes_in_group("world_npc"):
 		if enemy.has_method("freeze"):
 			enemy.freeze()
@@ -168,16 +164,14 @@ func _freeze_world_entities() -> void:
 			if enemy.get("anim_player") and enemy.anim_player:
 				enemy.anim_player.pause()
 
-# ---------------------------------------------------------------------------
-# Unfreeze all world entities and unlock interaction prompts
-# ---------------------------------------------------------------------------
-
 func _unfreeze_world_entities() -> void:
 	for npc in get_tree().get_nodes_in_group("npc"):
 		npc.set_process(true)
 		npc.set_physics_process(true)
 		if npc.get("anim_player") and npc.anim_player:
-			npc.anim_player.play()
+			var current = npc.anim_player.current_animation
+			if current != "":
+				npc.anim_player.play(current)
 		if npc.get("interaction_area") and npc.interaction_area:
 			if npc.interaction_area.has_method("unlock"):
 				npc.interaction_area.unlock()
@@ -218,54 +212,60 @@ func end_battle() -> void:
 	cinematic_manager.resume_world()
 	_unfreeze_world_entities()
 	AudioManager.play_music(current_scene_id)
+	FollowerManager.respawn_followers(scene_root, player)
 	await transition_manager.fade_in()
 	if camera and camera.has_method("release_hold"):
 		camera.release_hold()
 	if player:
 		player.enable_movement()
-	FollowerManager.respawn_followers(scene_root, player)
+	_inject_scene_exits()
 	emit_signal("battle_return_complete")
 
 func _load_from_save(scene_id: String) -> void:
 	_save_loading = true
+
 	if scene_id == "" or not SCENE_REGISTRY.has(scene_id):
 		push_error("SceneLoader: _load_from_save invalid scene_id '%s'" % scene_id)
+		_save_loading = false
 		return
+
 	var scene: PackedScene = load(SCENE_REGISTRY[scene_id])
 	if not scene:
 		push_error("SceneLoader: failed to load scene '%s'" % SCENE_REGISTRY[scene_id])
+		_save_loading = false
 		return
 
-	# fade to black while menu is still open and tree is paused — world stays frozen
 	if player:
 		player.disable_movement()
 	await transition_manager.fade_out()
 
-	# now close the menu — unpause happens here but screen is already black
 	var menu_manager = get_tree().get_first_node_in_group("menu_manager")
 	if menu_manager and menu_manager.has_method("close_menu"):
 		menu_manager.close_menu()
 
-	# swap the scene while black
 	_load_scene_internal(scene)
 	current_scene_id = scene_id
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	# restore player position while still black
+	if player:
+		player.visible = true
 	if player and SaveManager.saved_player_position != Vector3.ZERO:
 		player.global_position = SaveManager.saved_player_position
 		player.rotation.y = SaveManager.saved_player_rotation
 
-	# restore follower list from save and respawn while still black
 	_save_loading = false
 	FollowerManager.restore_from_paths(SaveManager._pending_follower_paths)
 	FollowerManager.respawn_followers(scene_root, player)
 
-	await get_tree().create_timer(door_pause).timeout
+	for node in get_tree().get_nodes_in_group("standalone_load_menu"):
+		node.queue_free()
 
-	# now fade in with everything in place
+	if camera and camera.has_method("snap_to_target"):
+		camera.snap_to_target()
+
+	await get_tree().create_timer(door_pause).timeout
 	await transition_manager.fade_in()
 
 	if player:
@@ -274,12 +274,34 @@ func _load_from_save(scene_id: String) -> void:
 	emit_signal("scene_loaded", scene_id)
 	emit_signal("battle_return_complete")
 
+func restart_from_beginning() -> void:
+	if not initial_scene:
+		push_error("SceneLoader: no initial_scene assigned")
+		return
+	FollowerManager.clear_followers()
+	if player:
+		player.disable_movement()
+	await transition_manager.fade_out()
+	_load_scene_internal(initial_scene, initial_spawn_point)
+	current_scene_id = initial_scene_id
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if player:
+		player.visible = true
+	if camera and camera.has_method("snap_to_target"):
+		camera.snap_to_target()
+	if initial_music_id != "":
+		AudioManager.play_music(initial_music_id)
+	await transition_manager.fade_in()
+	if player:
+		player.enable_movement()
+
 func load_scene_by_id(scene_id: String, spawn_point: String = "", music_id: String = "") -> void:
 	if scene_id == "":
 		push_error("SceneLoader: load_scene_by_id called with empty scene_id")
 		return
 	if not SCENE_REGISTRY.has(scene_id):
-		push_error("SceneLoader: scene_id '%s' not found in SCENE_REGISTRY — add it to SceneLoader.gd" % scene_id)
+		push_error("SceneLoader: scene_id '%s' not found in SCENE_REGISTRY" % scene_id)
 		return
 	var scene: PackedScene = load(SCENE_REGISTRY[scene_id])
 	if not scene:

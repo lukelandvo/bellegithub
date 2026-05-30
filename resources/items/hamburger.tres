@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://b37gpq5kositl"]
+
+[ext_resource type="Script" uid="uid://bdauk57ltogw6" path="res://scripts/ItemData.gd" id="1_67e1l"]
+
+[resource]
+script = ExtResource("1_67e1l")
+item_id = "hamburger"
+display_name = "Hamburger"
+description = "restores some hp"
+effect_type = 0
+power = 30
+metadata/_custom_type_script = "uid://bdauk57ltogw6"

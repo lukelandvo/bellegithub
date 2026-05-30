@@ -2,14 +2,23 @@
 # Pure logic — no awaits. BattleUI drives all progression.
 # Attach to a node in battle.tscn.
 #
-# Turn order: party member 0 -> party member 1 -> ... -> enemy 0 -> enemy 1 -> ...
-# Skips dead party members and dead enemies.
-# Win condition: all enemies dead.
-# Lose condition: all party members KO'd.
+# Turn flow:
+#   1. BattleUI collects one queued action from every living party member.
+#   2. BattleManager.build_round_queue() merges party actions + enemy actions,
+#      sorted by speed descending (ties go to party members, then lower slot index).
+#   3. BattleUI executes each entry in the queue in order.
+#   4. Repeat until win/lose/flee.
+#
+# v4.5: do_attack() uses member.get_effective_offense()
+#        queue_party_action() uses member.get_effective_speed()
+# v4.6: Enemy debuffs now write to member._temp_*_penalty instead of base stats.
+#        clear_battle_penalties() called on all party members at end of every battle.
+#        do_action() checks target existence before spending PP on DAMAGE moves.
 
 extends Node
 
-enum BattleState { INTRO, PARTY_TURN, ENEMY_TURN, WIN, LOSE, FLED }
+enum BattleState { INTRO, COLLECTING, RESOLVING, WIN, LOSE, FLED }
+enum ActionType { FIGHT, PSI, ITEM, FLEE }
 
 @export_group("Spawning")
 @export var enemy_spacing: float = 2.0
@@ -32,18 +41,19 @@ var enemy_alive: Array = []
 var _move_cooldown_counters: Array = []
 var _turn_count: int = 0
 
-@onready var spawn_root: Node = $"../SpawnPoints"
+var _queued_actions: Array = []
+
+@export var spawn_root: Node
 
 signal hp_updated(member_index: int, current_hp: int, max_hp: int)
+signal battle_finished
 signal pp_updated(member_index: int, current_pp: int, max_pp: int)
 signal enemy_hp_updated(enemy_index: int, current_hp: int, max_hp: int, display_name: String)
 
 func _ready() -> void:
 	add_to_group("battle_manager")
 
-	# consume() reads confirmed_encounter — set by SceneLoader before confrontation
 	var encounter = BattleSession.consume()
-
 	if not encounter:
 		push_error("BattleManager: no encounter — BattleSession.confirmed_encounter was null")
 		return
@@ -56,7 +66,6 @@ func _ready() -> void:
 	for member in party:
 		party_alive.append(member.is_alive())
 
-	# Spawn background
 	var bg_scene: PackedScene = null
 	if encounter.battle_background:
 		bg_scene = encounter.battle_background
@@ -65,7 +74,6 @@ func _ready() -> void:
 	if bg_scene:
 		spawn_root.add_child(bg_scene.instantiate())
 
-	# Pick roster
 	var roster = encounter.pick_roster()
 	if roster:
 		enemies = roster.enemies.duplicate()
@@ -74,8 +82,6 @@ func _ready() -> void:
 		push_error("BattleManager: no enemies in roster — check encounter setup")
 		return
 
-	# Start music — use pending override first, then encounter's AudioStream,
-	# then fall back to the registered "battle_default" ID.
 	var track: AudioStream = BattleSession.pending_music
 	if not track:
 		track = encounter.battle_music
@@ -85,11 +91,10 @@ func _ready() -> void:
 	else:
 		AudioManager.play_music("battle_default")
 
-	# Duplicate slots so shared .tres don't interfere
 	for i in range(enemies.size()):
 		enemies[i] = enemies[i].duplicate()
+		enemies[i].stats = enemies[i].stats.duplicate(true)
 
-	# Generate display names
 	var original_names: Array = []
 	for slot in enemies:
 		original_names.append(slot.display_name if slot.display_name != "" else slot.stats.enemy_name)
@@ -108,15 +113,12 @@ func _ready() -> void:
 		elif enemies[i].display_name == "":
 			enemies[i].display_name = base
 
-	# Spawn enemy instances
 	var center_node = spawn_root.find_child("EnemySpawnCenter", true, false)
 	var center_pos: Vector3 = center_node.global_position if center_node else Vector3.ZERO
 	var count = enemies.size()
 
 	for i in range(count):
 		var slot = enemies[i]
-		slot.stats = slot.stats.duplicate(true)
-
 		var offset = (i - (count - 1) / 2.0) * enemy_spacing
 		var spawn_pos = center_pos + Vector3(offset, 0.0, 0.0)
 
@@ -142,10 +144,6 @@ func _ready() -> void:
 				counters.append(move.cooldown_turns)
 		_move_cooldown_counters.append(counters)
 
-# ---------------------------------------------------------------------------
-# Intro
-# ---------------------------------------------------------------------------
-
 func get_intro_message() -> String:
 	if enemies.is_empty():
 		return "An enemy appears!"
@@ -157,12 +155,49 @@ func get_intro_message() -> String:
 	var all_but_last = names.slice(0, names.size() - 1)
 	return "You encounter %s, and %s!" % [", ".join(all_but_last), names[names.size() - 1]]
 
-# ---------------------------------------------------------------------------
-# Turn management
-# ---------------------------------------------------------------------------
+func queue_party_action(member_index: int, type: int, target: int, move = null, item = null) -> void:
+	_queued_actions.append({
+		"actor": "party",
+		"index": member_index,
+		"type": type,
+		"target": target,
+		"move": move,
+		"item": item,
+		"speed": party[member_index].get_effective_speed()
+	})
 
-func start_party_turn(_member_index: int) -> void:
-	state = BattleState.PARTY_TURN
+func _queue_enemy_actions() -> void:
+	_turn_count += 1
+	for i in range(enemies.size()):
+		if not enemy_alive[i]:
+			continue
+		_tick_cooldowns(i)
+		var move = _pick_enemy_move(i)
+		var target = pick_enemy_target()
+		_queued_actions.append({
+			"actor": "enemy",
+			"index": i,
+			"type": ActionType.FIGHT,
+			"target": target,
+			"move": move,
+			"item": null,
+			"speed": enemies[i].stats.speed
+		})
+
+func build_round_queue() -> Array:
+	_queue_enemy_actions()
+	_queued_actions.sort_custom(func(a, b):
+		if a["speed"] != b["speed"]:
+			return a["speed"] > b["speed"]
+		if a["actor"] != b["actor"]:
+			return a["actor"] == "party"
+		if a["actor"] == "party":
+			return a["index"] < b["index"]
+		return a["index"] < b["index"]
+	)
+	var queue = _queued_actions.duplicate()
+	_queued_actions.clear()
+	return queue
 
 func get_living_enemies() -> Array:
 	var result = []
@@ -178,83 +213,69 @@ func get_living_party() -> Array:
 			result.append({ "index": i, "name": party[i].character_name })
 	return result
 
-func _next_turn_after_party(member_index: int) -> String:
-	for i in range(member_index + 1, party.size()):
-		if party_alive[i]:
-			return "party_turn_%d" % i
-	for i in range(enemies.size()):
-		if enemy_alive[i]:
-			return "enemy_turn_%d" % i
-	return "win"
-
-func _next_turn_after_enemy(enemy_index: int) -> String:
-	for i in range(enemy_index + 1, enemies.size()):
-		if enemy_alive[i]:
-			return "enemy_turn_%d" % i
-	for i in range(party.size()):
-		if party_alive[i]:
-			return "party_turn_%d" % i
-	return "lose"
-
-# ---------------------------------------------------------------------------
-# Party actions
-# ---------------------------------------------------------------------------
-
 func get_attack_announce(member_index: int, target_index: int) -> String:
 	return "%s attacks %s!" % [party[member_index].character_name, enemies[target_index].display_name]
 
 func do_attack(member_index: int, target_index: int) -> Dictionary:
+	var actual_target = _resolve_enemy_target(target_index)
+	if actual_target == -1:
+		return {
+			"message": "No targets remain.",
+			"anim": "", "anim_override": -1, "enemy_index": -1,
+			"member_index": member_index, "hit": false, "skipped": true
+		}
+
 	var member = party[member_index]
 	var hit = randf() < 0.8
 	if not hit:
 		return {
 			"message": "%s missed!" % member.character_name,
-			"next": _next_turn_after_party(member_index),
-			"anim": "", "anim_override": -1, "enemy_index": target_index,
+			"anim": "", "anim_override": -1, "enemy_index": actual_target,
 			"member_index": member_index, "hit": false
 		}
 
-	var stats = enemies[target_index].stats
-	var damage = stats.take_damage(member.offense)
-	_check_enemy_phase(target_index)
-	_emit_enemy_hp(target_index)
+	var stats = enemies[actual_target].stats
+	var damage = stats.take_damage(member.get_effective_offense())
+	_check_enemy_phase(actual_target)
+	_emit_enemy_hp(actual_target)
 
 	if stats.current_hp <= 0:
-		enemy_alive[target_index] = false
-		_start_death_fade(target_index)
+		enemy_alive[actual_target] = false
+		_start_death_fade(actual_target)
 		if _all_enemies_dead():
 			state = BattleState.WIN
-			return {
-				"message": "You dealt %d damage!" % damage,
-				"next": "win",
-				"anim": "death", "anim_override": -1,
-				"enemy_index": target_index, "member_index": member_index,
-				"death_message": "%s has been defeated!" % enemies[target_index].display_name,
-				"hit": true
-			}
 		return {
 			"message": "You dealt %d damage!" % damage,
-			"next": _next_turn_after_party(member_index),
 			"anim": "death", "anim_override": -1,
-			"enemy_index": target_index, "member_index": member_index,
-			"death_message": "%s has been defeated!" % enemies[target_index].display_name,
+			"enemy_index": actual_target, "member_index": member_index,
+			"death_message": "%s has been defeated!" % enemies[actual_target].display_name,
 			"hit": true
 		}
 
 	return {
 		"message": "You dealt %d damage!" % damage,
-		"next": _next_turn_after_party(member_index),
 		"anim": "hurt", "anim_override": -1,
-		"enemy_index": target_index, "member_index": member_index,
+		"enemy_index": actual_target, "member_index": member_index,
 		"hit": true
 	}
 
 func do_action(member_index: int, move: ActionMove, target_index: int) -> Dictionary:
 	var member = party[member_index]
+
+	# For damage moves, verify a target exists BEFORE spending PP.
+	var actual_damage_target: int = -1
+	if move.effect_type == ActionMove.EffectType.DAMAGE:
+		actual_damage_target = _resolve_enemy_target(target_index)
+		if actual_damage_target == -1:
+			return {
+				"message": "No targets remain.",
+				"anim": "", "anim_override": -1, "enemy_index": -1,
+				"member_index": member_index, "skipped": true
+			}
+
 	if not member.use_pp(move.pp_cost):
 		return {
 			"message": "Not enough PP!",
-			"next": "party_turn_%d" % member_index,
 			"anim": "", "anim_override": -1, "enemy_index": -1, "member_index": member_index
 		}
 	_emit_pp(member_index)
@@ -262,121 +283,98 @@ func do_action(member_index: int, move: ActionMove, target_index: int) -> Dictio
 	var roll = randi_range(-move.variance, move.variance)
 	var result_message: String
 	var anim: String = ""
-	var anim_enemy: int = target_index
+	var anim_enemy: int = -1
 
 	match move.effect_type:
 		ActionMove.EffectType.DAMAGE:
-			var stats = enemies[target_index].stats
+			anim_enemy = actual_damage_target
+			var stats = enemies[actual_damage_target].stats
 			var power = maxi(1, move.power + roll - stats.defense)
 			stats.current_hp -= power
 			stats.current_hp = maxi(0, stats.current_hp)
-			_check_enemy_phase(target_index)
-			_emit_enemy_hp(target_index)
+			_check_enemy_phase(actual_damage_target)
+			_emit_enemy_hp(actual_damage_target)
 			result_message = "%s dealt %d damage!" % [move.move_name, power]
 			if stats.current_hp <= 0:
-				enemy_alive[target_index] = false
-				_start_death_fade(target_index)
+				enemy_alive[actual_damage_target] = false
+				_start_death_fade(actual_damage_target)
 				if _all_enemies_dead():
 					state = BattleState.WIN
-					return {
-						"message": result_message, "next": "win",
-						"anim": "death", "anim_override": -1,
-						"enemy_index": anim_enemy, "member_index": member_index,
-						"death_message": "%s has been defeated!" % enemies[target_index].display_name
-					}
 				return {
 					"message": result_message,
-					"next": _next_turn_after_party(member_index),
 					"anim": "death", "anim_override": -1,
 					"enemy_index": anim_enemy, "member_index": member_index,
-					"death_message": "%s has been defeated!" % enemies[target_index].display_name
+					"death_message": "%s has been defeated!" % enemies[actual_damage_target].display_name
 				}
 			anim = "hurt"
 
 		ActionMove.EffectType.HEAL:
-			var amount = member.heal(move.power + roll)
-			_emit_hp(member_index)
-			result_message = "%s restored %d HP!" % [move.move_name, amount]
-			anim_enemy = -1
+			var target = party[target_index] if target_index >= 0 and target_index < party.size() else member
+			var actual_target_index = target_index if target_index >= 0 and target_index < party.size() else member_index
+			var amount = target.heal(move.power + roll)
+			_emit_hp(actual_target_index)
+			result_message = "%s restored %d HP to %s!" % [move.move_name, amount, target.character_name]
 
 		ActionMove.EffectType.RESTORE_PP:
-			var amount = member.restore_pp(move.power + roll)
-			_emit_pp(member_index)
-			result_message = "%s restored %d PP!" % [move.move_name, amount]
-			anim_enemy = -1
+			var target = party[target_index] if target_index >= 0 and target_index < party.size() else member
+			var actual_target_index = target_index if target_index >= 0 and target_index < party.size() else member_index
+			var amount = target.restore_pp(move.power + roll)
+			_emit_pp(actual_target_index)
+			result_message = "%s restored %d PP to %s!" % [move.move_name, amount, target.character_name]
 
 	return {
 		"message": result_message,
-		"next": _next_turn_after_party(member_index),
 		"anim": anim, "anim_override": -1,
 		"enemy_index": anim_enemy, "member_index": member_index
 	}
 
-func do_use_item(member_index: int, item: Resource) -> Dictionary:
-	var member = party[member_index]
-	var roll = randi_range(-item.variance, item.variance)
+func do_item(member_index: int, item: ItemData, target_index: int) -> Dictionary:
+	var target = party[target_index]
 	var result_message: String
 
 	match item.effect_type:
-		0:
-			var before = member.current_hp
-			var amount = member.heal(item.power + roll)
-			_emit_hp(member_index)
-			if before == member.max_hp:
-				result_message = "%s's HP is already full!" % member.character_name
+		ItemData.EffectType.HEAL_HP:
+			if target.current_hp >= target.max_hp:
+				result_message = "%s's HP is already full!" % target.character_name
 			else:
-				result_message = "%s gained %d HP!" % [member.character_name, amount]
-		1:
-			var before = member.current_pp
-			var amount = member.restore_pp(item.power + roll)
-			_emit_pp(member_index)
-			if before == member.max_pp:
-				result_message = "%s's PP is already full!" % member.character_name
+				var amount = target.heal(item.power)
+				_emit_hp(target_index)
+				result_message = "%s recovered %d HP!" % [target.character_name, amount]
+
+		ItemData.EffectType.RESTORE_PP:
+			if target.current_pp >= target.max_pp:
+				result_message = "%s's PP is already full!" % target.character_name
 			else:
-				result_message = "%s gained %d PP!" % [member.character_name, amount]
+				var amount = target.restore_pp(item.power)
+				_emit_pp(target_index)
+				result_message = "%s recovered %d PP!" % [target.character_name, amount]
+
 		_:
 			result_message = "Nothing happened."
 
-	item.quantity -= 1
-	if item.quantity <= 0:
-		SaveManager.remove_item(item.item_id)
+	SaveManager.remove_item(item.item_id)
 
 	return {
 		"message": result_message,
-		"next": _next_turn_after_party(member_index),
 		"anim": "", "anim_override": -1, "enemy_index": -1, "member_index": member_index
 	}
 
-func do_flee(member_index: int) -> Dictionary:
+func do_flee() -> Dictionary:
 	if randf() < 0.7:
 		state = BattleState.FLED
-		return {
-			"message": "Got away safely!",
-			"next": "fled",
-			"anim": "", "anim_override": -1, "enemy_index": -1, "member_index": member_index
-		}
-	return {
-		"message": "Couldn't escape!",
-		"next": _next_turn_after_party(member_index),
-		"anim": "", "anim_override": -1, "enemy_index": -1, "member_index": member_index
-	}
-
-# ---------------------------------------------------------------------------
-# Enemy turns
-# ---------------------------------------------------------------------------
+		for member in party:
+			member.clear_battle_penalties()
+		return { "fled": true, "message": "Got away safely!" }
+	return { "fled": false, "message": "Couldn't escape!" }
 
 func get_enemy_announce(enemy_index: int) -> Dictionary:
-	_turn_count += 1
-	_tick_cooldowns(enemy_index)
 	var slot = enemies[enemy_index]
-	var move = _pick_enemy_move(enemy_index)
-
+	var move = _queued_enemy_move(enemy_index)
 	var message: String
 	if move == null:
 		message = "%s attacks!" % slot.display_name
 	else:
 		message = move.use_message.replace("{enemy}", slot.display_name)
-
 	return {
 		"message": message,
 		"move": move,
@@ -396,13 +394,11 @@ func do_enemy_turn(enemy_index: int, move, target_member_index: int) -> Dictiona
 	var slot = enemies[enemy_index]
 	var stats = slot.stats
 	var member = party[target_member_index]
-	var next_turn = _next_turn_after_enemy(enemy_index)
 	var hit = randf() < 0.8
 
 	if not hit:
 		return {
 			"message": "%s missed!" % slot.display_name,
-			"next": next_turn,
 			"anim": "", "anim_override": move.anim_override if move else -1,
 			"enemy_index": enemy_index, "member_index": target_member_index,
 			"hit": false, "hit_sound": null
@@ -452,25 +448,25 @@ func do_enemy_turn(enemy_index: int, move, target_member_index: int) -> Dictiona
 				message = move.use_message.replace("{enemy}", slot.display_name)
 			EnemyMove.EffectType.LOWER_OFFENSE:
 				var amount = maxi(1, move.power + roll)
-				member.offense = maxi(0, member.offense - amount)
+				member._temp_offense_penalty += amount
 				message = move.result_message if move.result_message != "" else \
 					"%s's offense went down by %d!" % [member.character_name, amount]
 				message = message.replace("{enemy}", slot.display_name).replace("{player}", member.character_name).replace("{amount}", str(amount))
 			EnemyMove.EffectType.LOWER_DEFENSE:
 				var amount = maxi(1, move.power + roll)
-				member.defense = maxi(0, member.defense - amount)
+				member._temp_defense_penalty += amount
 				message = move.result_message if move.result_message != "" else \
 					"%s's defense went down by %d!" % [member.character_name, amount]
 				message = message.replace("{enemy}", slot.display_name).replace("{player}", member.character_name).replace("{amount}", str(amount))
 			EnemyMove.EffectType.LOWER_SPEED:
 				var amount = maxi(1, move.power + roll)
-				member.speed = maxi(0, member.speed - amount)
+				member._temp_speed_penalty += amount
 				message = move.result_message if move.result_message != "" else \
 					"%s's speed went down by %d!" % [member.character_name, amount]
 				message = message.replace("{enemy}", slot.display_name).replace("{player}", member.character_name).replace("{amount}", str(amount))
 			EnemyMove.EffectType.LOWER_GUTS:
 				var amount = maxi(1, move.power + roll)
-				member.guts = maxi(0, member.guts - amount)
+				member._temp_guts_penalty += amount
 				message = move.result_message if move.result_message != "" else \
 					"%s's guts went down by %d!" % [member.character_name, amount]
 				message = message.replace("{enemy}", slot.display_name).replace("{player}", member.character_name).replace("{amount}", str(amount))
@@ -482,11 +478,9 @@ func do_enemy_turn(enemy_index: int, move, target_member_index: int) -> Dictiona
 		_emit_hp(target_member_index)
 		if _all_party_ko():
 			state = BattleState.LOSE
-			next_turn = "lose"
 
 	return {
 		"message": message,
-		"next": next_turn,
 		"anim": "attack",
 		"anim_override": move.anim_override if move else -1,
 		"attack_animation_name": move.attack_animation_name if move else "",
@@ -495,10 +489,6 @@ func do_enemy_turn(enemy_index: int, move, target_member_index: int) -> Dictiona
 		"hit": true,
 		"hit_sound": move.hit_sound if move else null
 	}
-
-# ---------------------------------------------------------------------------
-# Target selection
-# ---------------------------------------------------------------------------
 
 func pick_enemy_target() -> int:
 	var living = []
@@ -509,9 +499,13 @@ func pick_enemy_target() -> int:
 		return 0
 	return living[randi() % living.size()]
 
-# ---------------------------------------------------------------------------
-# Win / Lose
-# ---------------------------------------------------------------------------
+func _resolve_enemy_target(target_index: int) -> int:
+	if enemy_alive[target_index]:
+		return target_index
+	for i in range(enemies.size()):
+		if enemy_alive[i]:
+			return i
+	return -1
 
 func get_win_messages() -> Array:
 	var total_exp = 0
@@ -523,10 +517,14 @@ func get_win_messages() -> Array:
 			FlagService.set_flag(slot.victory_flag)
 
 	var leveled_up_names: Array = []
+	var unlocked_moves: Dictionary = {}
 	for member in party:
+		member.clear_battle_penalties()
 		var levels = member.add_experience(total_exp)
 		if levels > 0:
 			leveled_up_names.append(member.character_name)
+		if not member.newly_unlocked_moves.is_empty():
+			unlocked_moves[member.character_name] = member.newly_unlocked_moves.duplicate()
 
 	AudioManager.play_music("victory")
 
@@ -535,26 +533,20 @@ func get_win_messages() -> Array:
 	messages.append("Gained %d EXP!" % total_exp)
 	for member_name in leveled_up_names:
 		messages.append("%s leveled up!" % member_name)
+		if unlocked_moves.has(member_name):
+			for move_name in unlocked_moves[member_name]:
+				messages.append("%s learned %s!" % [member_name, move_name])
 	if total_money > 0:
 		messages.append("Got $%d!" % total_money)
 	return messages
 
 func get_lose_messages() -> Array:
+	for member in party:
+		member.clear_battle_penalties()
 	return ["You were defeated..."]
 
-# ---------------------------------------------------------------------------
-# Return to world
-# ---------------------------------------------------------------------------
-
 func _return_to_world() -> void:
-	SaveManager.save(0)
-	var scene_loader = get_tree().get_first_node_in_group("scene_loader")
-	if scene_loader and scene_loader.has_method("end_battle"):
-		scene_loader.end_battle()
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+	emit_signal("battle_finished")
 
 func _all_enemies_dead() -> bool:
 	return enemy_alive.all(func(a): return not a)
@@ -601,6 +593,12 @@ func _pick_enemy_move(enemy_index: int) -> EnemyMove:
 			return available[i]
 	counters[available_indices[-1]] = available[-1].cooldown_turns
 	return available[-1]
+
+func _queued_enemy_move(enemy_index: int) -> EnemyMove:
+	for entry in _queued_actions:
+		if entry["actor"] == "enemy" and entry["index"] == enemy_index:
+			return entry.get("move", null)
+	return null
 
 func _tick_cooldowns(enemy_index: int) -> void:
 	var counters = _move_cooldown_counters[enemy_index]

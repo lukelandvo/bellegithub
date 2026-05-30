@@ -21,8 +21,8 @@ const MAX_PARTY_SIZE: int = 4
 # ---------------------------------------------------------------------------
 
 const PARTY_MEMBER_PATHS: Array = [
-	"res://resources/players/skip.tres",   # slot 0 — Skip
-	"",                                     # slot 1 — Yabo (add path when ready)
+	"res://characters/skip/resources/skip.tres",   # slot 0 — Skip
+	"res://characters/dad/resources/dad.tres",    # slot 1 — Dad
 	"",                                     # slot 2 — future
 	"",                                     # slot 3 — future
 ]
@@ -161,6 +161,17 @@ func remove_member(slot: int) -> void:
 
 func is_slot_active(slot: int) -> bool:
 	return party[slot] != null and party[slot].is_active
+
+# Activate a party member by character_id — call from dialogue or world events.
+# Example: SaveManager.recruit_party_member(2) recruits Dad.
+func recruit_party_member(character_id: int) -> void:
+	for i in range(MAX_PARTY_SIZE):
+		if party[i] and party[i].character_id == character_id:
+			party[i].is_active = true
+			if OS.is_debug_build():
+				print("SaveManager: recruited party member with character_id %d in slot %d" % [character_id, i])
+			return
+	push_warning("SaveManager: no PartyMember found with character_id %d — check PARTY_MEMBER_PATHS and dad.tres" % character_id)
 
 # ---------------------------------------------------------------------------
 # Inventory helpers
@@ -309,6 +320,10 @@ func load_save(slot: int) -> bool:
 	_quantities = inv_data.get("quantities", {})
 
 	FlagService.restore_from_save(save_data.get("flags", {}))
+	# clear transient UI flags that should never persist across saves
+	FlagService.clear_flag("save_menu_open")
+	FlagService.clear_flag("save_confirming")
+	FlagService.clear_flag("wants_save")
 	# store follower paths for restoration after scene load — not restored here
 	# to avoid freeing follower instances before the screen fades to black
 	_pending_follower_paths = save_data.get("followers", [])

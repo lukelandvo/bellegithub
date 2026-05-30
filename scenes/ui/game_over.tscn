@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dybtj5xexeuhb"]
+
+[ext_resource type="Script" uid="uid://blci700hei58o" path="res://scripts/game_over.gd" id="1_60xr3"]
+
+[node name="Control" type="CanvasLayer" unique_id=430316232]
+script = ExtResource("1_60xr3")

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PartyMember" format=3 uid="uid://db7o71rgpddc2"]
+
+[ext_resource type="Script" uid="uid://cwe24u7dsxroa" path="res://scripts/characters/PartyMember.gd" id="1_skucg"]
+
+[resource]
+script = ExtResource("1_skucg")
+character_name = "Dad"
+character_id = 2

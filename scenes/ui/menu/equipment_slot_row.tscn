@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://df83u1k7vfltv"]
+
+[ext_resource type="Script" uid="uid://bra02sv3qxp13" path="res://scripts/ui/equipment_slot_row.gd" id="1_esp11"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_1kffl"]
+font_size = 12
+
+[sub_resource type="LabelSettings" id="LabelSettings_0xyrw"]
+font_size = 12
+
+[node name="PanelContainer" type="PanelContainer" unique_id=364512096]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_esp11")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=648613125]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1949254514]
+layout_mode = 2
+
+[node name="SlotLabel" type="Label" parent="MarginContainer/HBoxContainer" unique_id=1022530374]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+label_settings = SubResource("LabelSettings_1kffl")
+
+[node name="EquippedLabel" type="Label" parent="MarginContainer/HBoxContainer" unique_id=1405879630]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+label_settings = SubResource("LabelSettings_0xyrw")

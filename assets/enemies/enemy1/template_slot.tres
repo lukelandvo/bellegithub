@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemySlot" format=3 uid="uid://c316q14r6xdy4"]
+
+[ext_resource type="PackedScene" uid="uid://cpquerrwp5c12" path="res://assets/enemies/template_enemy.tscn" id="1_yx73b"]
+[ext_resource type="Script" uid="uid://c6pa2wmkiodlf" path="res://scripts/battle/EnemySlot.gd" id="2_bteyc"]
+[ext_resource type="Resource" uid="uid://bvkntrua4rkeq" path="res://assets/enemies/enemy1/template_stats.tres" id="3_jek8q"]
+
+[resource]
+script = ExtResource("2_bteyc")
+display_name = "crow"
+victory_flag = "enemya_defeated"
+stats = ExtResource("3_jek8q")
+scene = ExtResource("1_yx73b")
+metadata/_custom_type_script = "uid://c6pa2wmkiodlf"

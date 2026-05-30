@@ -1,13 +1,15 @@
 # PartyMember.gd
 # Resource representing one party member's full state.
 # Create one .tres per character via File > New Resource > PartyMember.
-# Assign to SaveManager.party slots in the inspector.
 #
-# Equipment slots: weapon, head, body, accessory.
-# All characters share the same slot layout.
+# Base stats are stored and saved as-is.
+# Always read combat stats via get_effective_*() methods —
+# these add equipped item bonuses and subtract any active battle debuffs.
+# This prevents stat drift from equip/unequip AND from enemy debuff moves.
 #
-# current_hp and current_pp persist in the .tres file.
-# Call SaveManager.save() after any battle or save point to write state.
+# _temp_*_penalty fields are NOT exported and NOT serialized — they exist
+# only in memory during battle and clear to 0 on next load automatically.
+# Call clear_battle_penalties() at the end of every battle path.
 
 class_name PartyMember
 extends Resource
@@ -23,25 +25,25 @@ extends Resource
 @export var experience_to_next_level: int = 100
 
 @export_group("Health")
-@export var max_hp: int = 100
-@export var current_hp: int = 100:
+@export var max_hp: int = 32
+@export var current_hp: int = 32:
 	set(value):
 		current_hp = clampi(value, 0, max_hp)
 
 @export_group("PSI")
-@export var max_pp: int = 0
-@export var current_pp: int = 0:
+@export var max_pp: int = 10
+@export var current_pp: int = 10:
 	set(value):
 		current_pp = clampi(value, 0, max_pp)
 
-@export_group("Combat Stats")
-@export var offense: int = 10
-@export var defense: int = 5
-@export var speed: int = 10
-@export var guts: int = 5
-@export var luck: int = 5
-@export var vitality: int = 5
-@export var iq: int = 5
+@export_group("Base Stats")
+@export var offense: int = 8
+@export var defense: int = 6
+@export var speed: int = 8
+@export var guts: int = 4
+@export var luck: int = 4
+@export var vitality: int = 4
+@export var iq: int = 4
 
 @export_group("Equipment")
 @export var weapon: String = ""
@@ -51,6 +53,63 @@ extends Resource
 
 @export_group("Moves")
 @export var psi_moves: Array[Resource] = []
+
+@export_group("Move Unlocks")
+@export var move_unlocks: Dictionary = {}
+
+# ---------------------------------------------------------------------------
+# Battle-only temporary debuff penalties.
+# Not exported, not serialized — zero on every fresh load.
+# Accumulate via BattleManager; clear with clear_battle_penalties().
+# ---------------------------------------------------------------------------
+
+var _temp_offense_penalty: int = 0
+var _temp_defense_penalty: int = 0
+var _temp_speed_penalty: int = 0
+var _temp_guts_penalty: int = 0
+
+func clear_battle_penalties() -> void:
+	_temp_offense_penalty = 0
+	_temp_defense_penalty = 0
+	_temp_speed_penalty = 0
+	_temp_guts_penalty = 0
+
+# ---------------------------------------------------------------------------
+# Effective stat helpers — always use these in battle and menus.
+# Includes equipment bonuses and temporary battle debuffs.
+# ---------------------------------------------------------------------------
+
+func get_effective_offense() -> int:
+	return maxi(0, offense + _bonus("bonus_offense") - _temp_offense_penalty)
+
+func get_effective_defense() -> int:
+	return maxi(0, defense + _bonus("bonus_defense") - _temp_defense_penalty)
+
+func get_effective_speed() -> int:
+	return maxi(0, speed + _bonus("bonus_speed") - _temp_speed_penalty)
+
+func get_effective_guts() -> int:
+	return maxi(0, guts + _bonus("bonus_guts") - _temp_guts_penalty)
+
+func get_effective_luck() -> int:
+	return luck + _bonus("bonus_luck")
+
+func get_effective_iq() -> int:
+	return iq + _bonus("bonus_iq")
+
+func get_effective_vitality() -> int:
+	return vitality + _bonus("bonus_vitality")
+
+func _bonus(field: String) -> int:
+	var total: int = 0
+	for slot in ["weapon", "head", "body", "accessory"]:
+		var item_id: String = get_equipped(slot)
+		if item_id == "":
+			continue
+		var item: ItemData = ItemRegistry.get_item(item_id)
+		if item:
+			total += item.get(field) as int
+	return total
 
 # ---------------------------------------------------------------------------
 # Derived helpers
@@ -63,7 +122,8 @@ func is_ko() -> bool:
 	return current_hp <= 0
 
 func take_damage(amount: int) -> int:
-	var actual = maxi(1, amount - defense)
+	# Uses get_effective_defense() which already includes temp debuffs.
+	var actual = maxi(1, amount - get_effective_defense())
 	current_hp -= actual
 	return actual
 
@@ -127,12 +187,14 @@ func get_all_equipment() -> Dictionary:
 	return { "weapon": weapon, "head": head, "body": body, "accessory": accessory }
 
 # ---------------------------------------------------------------------------
-# Experience — loops until XP settles below threshold
-# Returns number of levels gained (0 if none).
+# Experience
 # ---------------------------------------------------------------------------
+
+var newly_unlocked_moves: Array = []
 
 func add_experience(amount: int) -> int:
 	experience += amount
+	newly_unlocked_moves.clear()
 	var levels_gained: int = 0
 	while experience >= experience_to_next_level:
 		_level_up()
@@ -152,16 +214,36 @@ func _level_up() -> void:
 	guts += 1
 	current_hp = max_hp
 	current_pp = max_pp
+	_check_move_unlocks()
+
+func _check_move_unlocks() -> void:
+	if OS.is_debug_build(): print("PartyMember: checking move unlocks at level %d, keys=%s" % [level, move_unlocks.keys()])
+	if not move_unlocks.has(level):
+		return
+	var path = move_unlocks[level]
+	if not ResourceLoader.exists(path):
+		push_warning("PartyMember: move unlock path not found: %s" % path)
+		return
+	var move = load(path)
+	if not move:
+		push_warning("PartyMember: failed to load move at: %s" % path)
+		return
+	for existing in psi_moves:
+		if existing.resource_path == path:
+			return
+	psi_moves.append(move)
+	newly_unlocked_moves.append(move.move_name)
 
 # ---------------------------------------------------------------------------
-# Serialization
+# Serialization — temp penalties are intentionally excluded.
 # ---------------------------------------------------------------------------
 
 func to_dict() -> Dictionary:
+	var move_paths: Array = []
+	for move in psi_moves:
+		if move and move.resource_path != "":
+			move_paths.append(move.resource_path)
 	return {
-		# FIX: store resource_path so SaveManager.load_save() can reconstruct
-		# this member if its slot was null at boot (e.g. Yabo before his path
-		# is added to PARTY_MEMBER_PATHS).
 		"resource_path": resource_path,
 		"character_id": character_id,
 		"character_name": character_name,
@@ -184,6 +266,7 @@ func to_dict() -> Dictionary:
 		"head": head,
 		"body": body,
 		"accessory": accessory,
+		"psi_moves": move_paths,
 	}
 
 func from_dict(data: Dictionary) -> void:
@@ -194,8 +277,6 @@ func from_dict(data: Dictionary) -> void:
 	experience = data.get("experience", experience)
 	experience_to_next_level = data.get("experience_to_next_level", experience_to_next_level)
 	max_hp = data.get("max_hp", max_hp)
-	# FIX: fall back to current_hp (not max_hp) if the key is missing,
-	# so a partial/corrupted dict doesn't silently full-heal the character.
 	current_hp = data.get("current_hp", current_hp)
 	max_pp = data.get("max_pp", max_pp)
 	current_pp = data.get("current_pp", current_pp)
@@ -210,3 +291,11 @@ func from_dict(data: Dictionary) -> void:
 	head = data.get("head", "")
 	body = data.get("body", "")
 	accessory = data.get("accessory", "")
+	var move_paths: Array = data.get("psi_moves", [])
+	if not move_paths.is_empty():
+		psi_moves.clear()
+		for path in move_paths:
+			if ResourceLoader.exists(path):
+				var move = load(path)
+				if move:
+					psi_moves.append(move)

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyStats" format=3 uid="uid://21fbe6lhn4n"]
+
+[ext_resource type="Script" uid="uid://nf0c4ec3ujqk" path="res://scripts/battle/EnemyMove.gd" id="1_ey1gy"]
+[ext_resource type="Script" uid="uid://8fdotkpgp6eq" path="res://scripts/battle/EnemyStats.gd" id="2_ayk4q"]
+
+[resource]
+script = ExtResource("2_ayk4q")
+enemy_name = "Squirrel"
+max_hp = 22
+offense = 9
+defense = 4
+experience_reward = 150
+metadata/_custom_type_script = "uid://8fdotkpgp6eq"

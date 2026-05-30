@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://crjh08ijekncs" path="res://scripts/world/npc.gd" id="5_852yb"]
 [ext_resource type="Texture2D" uid="uid://b0lhmtx12tboe" path="res://assets/models/characters/test/frank/frank_frank_front.png" id="5_e6o8q"]
 [ext_resource type="Resource" uid="uid://dmppxal8ij4yg" path="res://assets/models/characters/test/frank/frank_encounter.tres" id="5_vfjm7"]
-[ext_resource type="Resource" uid="uid://ck5fh4jnf2axr" path="res://dialogue/test/frank.dialogue" id="6_vfjm7"]
+[ext_resource type="Resource" uid="uid://ck5fh4jnf2axr" path="res://dialogue/test/visitor_center.dialogue" id="6_vfjm7"]
 [ext_resource type="Texture2D" uid="uid://b2i6305tm5qnp" path="res://assets/models/characters/test/frank/frank_hand2.png" id="7_h7owq"]
 [ext_resource type="Script" uid="uid://dxqf4yb1vcq8a" path="res://scripts/world/npc_interaction_area.gd" id="8_rvrlx"]
 [ext_resource type="Texture2D" uid="uid://bc0iypbqfax0e" path="res://assets/models/characters/test/frank/frank_frank_head.png" id="9_h7owq"]

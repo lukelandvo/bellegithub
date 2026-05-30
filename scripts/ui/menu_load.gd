@@ -18,6 +18,14 @@ var _confirming: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if is_in_group("standalone_load_menu"):
+		var bg := ColorRect.new()
+		bg.color = Color(0, 0, 0, 0.88)
+		bg.anchor_right = 1.0
+		bg.anchor_bottom = 1.0
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(bg)
+		move_child(bg, 0)
 	refresh()
 
 func refresh() -> void:
@@ -30,16 +38,23 @@ func refresh() -> void:
 	_slot_infos = SaveManager.get_all_slot_infos()
 	_build_ui()
 
-func _build_ui() -> void:
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(scroll)
+func activate_content() -> void:
+	_selected = 0
+	_active = true
+	_update_selection()
 
+func deactivate_content() -> void:
+	_active = false
+	_update_selection()
+
+func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(vbox)
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.anchor_right = 1.0
+	vbox.anchor_bottom = 1.0
+	add_child(vbox)
 
 	for i in range(SaveManager.SAVE_SLOT_COUNT):
 		var info = _slot_infos[i]
@@ -54,8 +69,8 @@ func _build_ui() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)
 
-	_active = true
 	_update_selection()
+	if OS.is_debug_build(): print("menu_load: built %d rows, slot_infos=%s" % [_rows.size(), _slot_infos])
 
 func _build_slot_row(index: int, info: Dictionary) -> Control:
 	var panel := PanelContainer.new()
@@ -75,7 +90,6 @@ func _build_slot_row(index: int, info: Dictionary) -> Control:
 	hbox.add_theme_constant_override("separation", 8)
 	panel.add_child(hbox)
 
-	# selector label
 	var sel_label := Label.new()
 	sel_label.text = "  "
 	sel_label.add_theme_font_size_override("font_size", 13)
@@ -130,15 +144,16 @@ func _build_slot_row(index: int, info: Dictionary) -> Control:
 
 func _update_selection() -> void:
 	for i in _rows.size():
+		var is_sel = _active and i == _selected
 		var sel = _rows[i].get_node_or_null("HBoxContainer/Selector")
 		if sel:
-			sel.text = SELECTOR if i == _selected else "  "
+			sel.text = SELECTOR if is_sel else "  "
 			sel.add_theme_color_override("font_color",
-				SELECTED_COLOR if i == _selected else DIM_COLOR)
+				SELECTED_COLOR if is_sel else DIM_COLOR)
 		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.18, 0.18, 0.30, 1.0) if i == _selected else Color(0.12, 0.12, 0.20, 1.0)
+		style.bg_color = Color(0.18, 0.18, 0.30, 1.0) if is_sel else Color(0.12, 0.12, 0.20, 1.0)
 		style.set_border_width_all(1)
-		style.border_color = SELECTED_COLOR if i == _selected else Color(0.25, 0.25, 0.45, 1.0)
+		style.border_color = SELECTED_COLOR if is_sel else Color(0.25, 0.25, 0.45, 1.0)
 		style.set_corner_radius_all(3)
 		style.content_margin_left = 10
 		style.content_margin_right = 10
@@ -151,15 +166,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _confirming:
 		return
-	print("menu_load: _unhandled_input fired, action=interact:%s move_forward:%s move_back:%s" % [
+	if OS.is_debug_build(): print("menu_load: _unhandled_input fired, action=interact:%s move_forward:%s move_back:%s" % [
 		event.is_action_pressed("interact"),
 		event.is_action_pressed("move_forward"),
 		event.is_action_pressed("move_back")
 	])
 
 	if event.is_action_pressed("move_forward"):
-		_selected = wrapi(_selected - 1, 0, SaveManager.SAVE_SLOT_COUNT)
-		_update_selection()
+		if _selected == 0:
+			deactivate_content()
+			var menu = _find_menu()
+			if menu and menu.has_method("at_top_of_content"):
+				menu.at_top_of_content()
+		else:
+			_selected = wrapi(_selected - 1, 0, SaveManager.SAVE_SLOT_COUNT)
+			_update_selection()
 		get_viewport().set_input_as_handled()
 
 	elif event.is_action_pressed("move_back"):
@@ -168,35 +189,37 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 	elif event.is_action_pressed("interact") and not event.is_echo():
-		print("menu_load: interact pressed, selected=%d, confirming=%s" % [_selected, _confirming])
+		if OS.is_debug_build(): print("menu_load: interact pressed, selected=%d, confirming=%s" % [_selected, _confirming])
 		var info = _slot_infos[_selected]
-		print("menu_load: slot info = %s" % info)
+		if OS.is_debug_build(): print("menu_load: slot info = %s" % info)
 		if info.get("empty", true):
-			print("menu_load: slot is empty, ignoring")
+			if OS.is_debug_build(): print("menu_load: slot is empty, ignoring")
 			return
 		_active = false
 		_confirming = true
 		_load_slot(_selected)
 		get_viewport().set_input_as_handled()
 
+func _find_menu() -> Node:
+	var parent = get_parent()
+	while parent:
+		if parent.has_method("at_top_of_content"):
+			return parent
+		parent = parent.get_parent()
+	return null
+
 func _load_slot(slot: int) -> void:
-	print("menu_load: loading slot %d" % slot)
+	if OS.is_debug_build(): print("menu_load: loading slot %d" % slot)
 	var success = SaveManager.load_save(slot)
-	print("menu_load: load_save returned %s" % success)
+	if OS.is_debug_build(): print("menu_load: load_save returned %s" % success)
 	if not success:
 		_confirming = false
 		return
-	# store loader reference before closing menu (which frees this node)
 	var loaders = get_tree().get_nodes_in_group("scene_loader")
 	if loaders.is_empty():
 		push_warning("menu_load: no scene_loader found")
 		return
 	var loader = loaders[0]
 	var scene_id = SaveManager.current_scene_id
-	print("menu_load: scene_id = '%s'" % scene_id)
-	# close menu last — this frees the menu node including this script
-	# so we hand off to SceneLoader via a deferred call before that happens
+	if OS.is_debug_build(): print("menu_load: scene_id = '%s'" % scene_id)
 	loader.call_deferred("_load_from_save", scene_id)
-	var menu_manager = get_tree().get_first_node_in_group("menu_manager")
-	if menu_manager and menu_manager.has_method("close_menu"):
-		menu_manager.close_menu()

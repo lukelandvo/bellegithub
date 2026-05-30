@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemySlot" format=3 uid="uid://dbnqvisuxhirj"]
+
+[ext_resource type="PackedScene" uid="uid://cpquerrwp5c12" path="res://assets/enemies/template_enemy.tscn" id="1_63e0c"]
+[ext_resource type="Script" uid="uid://c6pa2wmkiodlf" path="res://scripts/battle/EnemySlot.gd" id="2_k3lfc"]
+[ext_resource type="Resource" uid="uid://dbpdp57o2yub2" path="res://assets/enemies/enemy2/template_stats2.tres" id="3_flibk"]
+
+[resource]
+script = ExtResource("2_k3lfc")
+display_name = "Squirrel"
+victory_flag = "enemyb_defeated"
+stats = ExtResource("3_flibk")
+scene = ExtResource("1_63e0c")
+metadata/_custom_type_script = "uid://c6pa2wmkiodlf"

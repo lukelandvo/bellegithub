@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemySlot" format=3 uid="uid://dwlewdfrhik80"]
+
+[ext_resource type="PackedScene" uid="uid://cpquerrwp5c12" path="res://assets/enemies/template_enemy.tscn" id="1_dlqkw"]
+[ext_resource type="Script" uid="uid://c6pa2wmkiodlf" path="res://scripts/battle/EnemySlot.gd" id="2_74bjx"]
+[ext_resource type="Resource" uid="uid://bg3eqk41rot4m" path="res://assets/enemies/enemy3/template_stats3.tres" id="3_7hap7"]
+
+[resource]
+script = ExtResource("2_74bjx")
+display_name = "Raccoon"
+victory_flag = "enemyc_defeated"
+stats = ExtResource("3_7hap7")
+scene = ExtResource("1_dlqkw")
+metadata/_custom_type_script = "uid://c6pa2wmkiodlf"

@@ -120,8 +120,11 @@ func _ready() -> void:
 		return
 
 	if _victory_flag_key != "" and FlagService.get_bool(_victory_flag_key):
+		if OS.is_debug_build(): print("NPC %s: victory flag '%s' is SET — entering DEFEATED" % [name, _victory_flag_key])
 		_enter_state(State.DEFEATED)
 		return
+	else:
+		if OS.is_debug_build(): print("NPC %s: victory flag '%s' = %s" % [name, _victory_flag_key, FlagService.get_bool(_victory_flag_key)])
 
 	if can_approach and approach_flag != "" and FlagService.get_bool(approach_flag):
 		_approach_done = true
@@ -181,6 +184,10 @@ func _enter_state(new_state: State) -> void:
 				visible = false
 				if interaction_area:
 					interaction_area.set_deferred("monitoring", false)
+				# disable all collision shapes so the NPC has no physical presence
+				for child in get_children():
+					if child is CollisionShape3D:
+						child.set_deferred("disabled", true)
 
 # ---------------------------------------------------------------------------
 # Physics process
@@ -307,6 +314,7 @@ func on_player_exited() -> void:
 # ---------------------------------------------------------------------------
 
 func interact() -> void:
+	if OS.is_debug_build(): print("NPC interact called on %s, state=%s, dialogue_triggered=%s, player_in_range=%s" % [name, _state, _dialogue_triggered, interaction_area.player_in_range if interaction_area else "no_area"])
 	if _state == State.TALK:
 		return
 	if _dialogue_triggered:
@@ -471,14 +479,13 @@ func _open_save_menu() -> void:
 		push_error("npc '%s': is_save_npc is true but no save_menu_scene assigned" % name)
 		return
 	# grab current scene_id from SceneLoader
-	var scene_id = ""
+	var _current_scene_id = ""
 	var loaders = get_tree().get_nodes_in_group("scene_loader")
 	if loaders.size() > 0:
-		scene_id = loaders[0].current_scene_id
-	print("_open_save_menu: loaders size=%d scene_id='%s'" % [loaders.size(), scene_id])
+		_current_scene_id = loaders[0].current_scene_id
 	var player_pos = _player.global_position if _player else Vector3.ZERO
 	var player_rot = _player.rotation.y if _player else 0.0
-	SaveManager.activate_save_point(save_point_id, save_point_name, scene_id, player_pos, player_rot)
+	SaveManager.activate_save_point(save_point_id, save_point_name, _current_scene_id, player_pos, player_rot)
 	# keep prompt locked and player frozen through the entire save flow
 	if interaction_area:
 		interaction_area.lock()
@@ -488,7 +495,7 @@ func _open_save_menu() -> void:
 	menu.save_cancelled.connect(_on_save_cancelled)
 	menu.open()
 
-func _on_save_completed(slot: int) -> void:
+func _on_save_completed(_slot: int) -> void:
 	# set flag so _on_dialogue_ended knows this is a confirm message, not another save trigger
 	FlagService.set_flag("save_confirming")
 	if dialogue:

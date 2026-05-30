@@ -13,5 +13,6 @@ metadata/_custom_type_script = "uid://nf0c4ec3ujqk"
 [resource]
 script = ExtResource("2_av1xr")
 enemy_name = "Frank"
+max_hp = 5
 moves = Array[ExtResource("1_oshnn")]([SubResource("Resource_oshnn")])
 metadata/_custom_type_script = "uid://8fdotkpgp6eq"

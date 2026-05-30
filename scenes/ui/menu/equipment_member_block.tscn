@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://si7hoo6knvh1"]
+
+[ext_resource type="Script" uid="uid://cms5ykjk70bd1" path="res://scripts/ui/equipment_member_block.gd" id="1_yq3nk"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_ryct5"]
+font_size = 11
+
+[node name="VBoxContainer" type="VBoxContainer" unique_id=751707548]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_yq3nk")
+
+[node name="MemberNameLabel" type="Label" parent="." unique_id=1797098456]
+unique_name_in_owner = true
+layout_mode = 2
+label_settings = SubResource("LabelSettings_ryct5")
+
+[node name="Divider" type="ColorRect" parent="." unique_id=213094325]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+
+[node name="SlotContainer" type="VBoxContainer" parent="." unique_id=1736724477]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ActionMove" format=3 uid="uid://cqppo4m3mpp01"]
+
+[ext_resource type="Script" uid="uid://bu1j6to5kpsj7" path="res://scripts/battle/ActionMove.gd" id="1_rw3ao"]
+
+[resource]
+script = ExtResource("1_rw3ao")
+move_name = "Heal"
+description = "Heals for a little bit"
+effect_type = 1
+power = 10
+metadata/_custom_type_script = "uid://bu1j6to5kpsj7"

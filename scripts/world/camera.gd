@@ -168,6 +168,9 @@ func _desired_position() -> Vector3:
 		desired.z = clamp(desired.z, min_z, max_z)
 	return desired
 
+func snap_to_target() -> void:
+	_snap_to_target()
+
 func _snap_to_target() -> void:
 	if target and target.has_method("get_facing_angle"):
 		_camera_angle_rad = target.get_facing_angle() + PI

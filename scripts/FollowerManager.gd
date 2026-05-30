@@ -45,6 +45,22 @@ func restore_from_paths(paths: Array) -> void:
 		else:
 			push_warning("FollowerManager: saved follower path not found: %s" % path)
 
+# Hide all active follower instances — called when battle starts
+func hide_followers() -> void:
+	for instance in _active_instances:
+		if is_instance_valid(instance):
+			instance.visible = false
+			instance.set_physics_process(false)
+			instance.set_process(false)
+
+# Show all active follower instances — called when battle ends
+func show_followers() -> void:
+	for instance in _active_instances:
+		if is_instance_valid(instance):
+			instance.visible = true
+			instance.set_physics_process(true)
+			instance.set_process(true)
+
 # Called by SceneLoader after every scene load and battle return.
 func respawn_followers(scene_root: Node, player: Node) -> void:
 	for instance in _active_instances:

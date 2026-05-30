@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyStats" format=3 uid="uid://bmodfe3b80rr1"]
+
+[ext_resource type="Script" uid="uid://nf0c4ec3ujqk" path="res://scripts/battle/EnemyMove.gd" id="1_5obm1"]
+[ext_resource type="Script" uid="uid://8fdotkpgp6eq" path="res://scripts/battle/EnemyStats.gd" id="2_5kxsr"]
+
+[resource]
+script = ExtResource("2_5kxsr")
+enemy_name = "A BEAR"
+max_hp = 65
+offense = 14
+defense = 6
+experience_reward = 50
+metadata/_custom_type_script = "uid://8fdotkpgp6eq"

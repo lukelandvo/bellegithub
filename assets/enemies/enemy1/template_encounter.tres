@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="Encounter" format=3 uid="uid://bwfjeoloee67l"]
+
+[ext_resource type="Script" uid="uid://dsh7swvu6mij4" path="res://scripts/battle/EncounterRoster.gd" id="1_cp4br"]
+[ext_resource type="Script" uid="uid://cbbhcua7d3s1u" path="res://scripts/battle/Encounter.gd" id="2_72g57"]
+[ext_resource type="Resource" uid="uid://bf1jvwtxk3y02" path="res://assets/enemies/enemy1/template_roster.tres" id="2_axs4u"]
+
+[resource]
+script = ExtResource("2_72g57")
+rosters = Array[ExtResource("1_cp4br")]([ExtResource("2_axs4u")])
+metadata/_custom_type_script = "uid://cbbhcua7d3s1u"

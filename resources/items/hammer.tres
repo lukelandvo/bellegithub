@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://yb5d3hx515su"]
+
+[ext_resource type="Script" uid="uid://bdauk57ltogw6" path="res://scripts/ItemData.gd" id="1_yji5g"]
+
+[resource]
+script = ExtResource("1_yji5g")
+item_id = "hammer"
+display_name = "Hammer"
+description = "a big ass hammer"
+equipment_slot = "weapon"
+metadata/_custom_type_script = "uid://bdauk57ltogw6"

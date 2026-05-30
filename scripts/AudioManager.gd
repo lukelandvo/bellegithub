@@ -118,6 +118,7 @@ func _do_crossfade(id: String, loop: bool) -> void:
 
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
+		_is_crossfading = false  # reset flag so awaiting coroutine doesn't leave it stuck
 
 	var next_player = _inactive_music_player
 	var prev_player = _active_music_player
@@ -143,6 +144,7 @@ func _do_crossfade_stream(stream: AudioStream, loop: bool) -> void:
 
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
+		_is_crossfading = false  # reset flag so awaiting coroutine doesn't leave it stuck
 
 	var next_player = _inactive_music_player
 	var prev_player = _active_music_player

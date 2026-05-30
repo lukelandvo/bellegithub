@@ -12,7 +12,7 @@
 extends Node
 
 const SAVE_VERSION: int = 1
-const SAVE_PATH: String = "user://belle_flags.dat"
+# Flags are saved/loaded via SaveManager — no separate file needed
 
 var _flags: Dictionary = {}
 var _debug_mode: bool = false
@@ -99,41 +99,3 @@ func restore_from_save(flags: Dictionary) -> void:
 # ---------------------------------------------------------------------------
 # Save / Load
 # ---------------------------------------------------------------------------
-
-func save() -> void:
-	if _debug_mode:
-		return
-	var save_data: Dictionary = {
-		"version": SAVE_VERSION,
-		"flags": _flags.duplicate(true)
-	}
-	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if not file:
-		push_error("FlagService: failed to open save file for writing")
-		return
-	file.store_var(save_data)
-	file.close()
-
-func load_save() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return false
-	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if not file:
-		push_error("FlagService: failed to open save file for reading")
-		return false
-	var save_data = file.get_var()
-	file.close()
-	if not save_data is Dictionary:
-		push_error("FlagService: save data is corrupted")
-		return false
-	var version = save_data.get("version", 0)
-	if version != SAVE_VERSION:
-		push_error("FlagService: save version mismatch (got %d, expected %d)" % [version, SAVE_VERSION])
-		return false
-	_flags = save_data.get("flags", {}).duplicate(true)
-	return true
-
-func delete_save() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
-	_flags.clear()

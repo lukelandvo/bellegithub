@@ -165,6 +165,17 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("interact") and can_move:
 		_try_interact()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_T:
+			SaveManager.add_item("hamburger")
+			_show_item_message("Got a Hamburger!")
+		if event.keycode == KEY_Y:
+			SaveManager.add_item("hammer")
+			_show_item_message("Got a Hammer!")
+
 func _try_interact() -> void:
 	if _interact_cooldown:
 		return
@@ -185,6 +196,32 @@ func disable_movement() -> void:
 			npc.interaction_area.hide_prompt()
 	if animation_player:
 		_start_idle_rotation()
+
+# ---------------------------------------------------------------------------
+# Item message — brief floating label, reused by chest and other pickups
+# ---------------------------------------------------------------------------
+
+func _show_item_message(message: String) -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 10
+	get_tree().root.add_child(canvas)
+
+	var label := Label.new()
+	label.text = message
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 20)
+	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	label.offset_top += 80
+	label.offset_bottom += 80
+	canvas.add_child(label)
+
+	var tween := get_tree().create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_callback(canvas.queue_free)
+
+# ---------------------------------------------------------------------------
+# Idle rotation
+# ---------------------------------------------------------------------------
 
 func _start_idle_rotation() -> void:
 	_idle_slot = 0

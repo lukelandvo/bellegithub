@@ -1,9 +1,9 @@
 # menu_actions.gd
-# Attach to the root Control of menu_actions.tscn.
+# Attach to the root VBoxContainer of menu_actions.tscn.
 # Lists PSI/action moves available to each active party member.
-# Move use outside of battle is stubbed — wire up when PSI system is ready.
+# Display only — move use outside of battle stubbed for later.
 
-extends Control
+extends VBoxContainer
 
 func _ready() -> void:
 	refresh()
@@ -12,30 +12,30 @@ func refresh() -> void:
 	for child in get_children():
 		child.free()
 
-	var members = SaveManager.get_active_members()
+	var members := SaveManager.get_active_members()
 	if members.is_empty():
 		_add_label("No party members.")
 		return
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(scroll)
-
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 16)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(vbox)
+	add_child(vbox)
 
 	for member in members:
 		vbox.add_child(_build_member_block(member))
+
+func activate_content() -> void:
+	pass  # display only — nothing to activate
+
+func deactivate_content() -> void:
+	pass
 
 func _build_member_block(member) -> Control:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# Member name header
 	var name_label := Label.new()
 	name_label.text = member.character_name.to_upper()
 	name_label.add_theme_font_size_override("font_size", 11)
@@ -66,14 +66,12 @@ func _build_move_row(move: Resource, member) -> Control:
 	row.custom_minimum_size.y = 24
 
 	var name_label := Label.new()
-	# Uses move.move_name — matches ActionMove resource field
 	name_label.text = move.get("move_name") if move.get("move_name") else "???"
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.add_theme_font_size_override("font_size", 13)
 	name_label.add_theme_color_override("font_color", Color(0.92, 0.92, 0.96))
 	row.add_child(name_label)
 
-	# PP cost
 	var pp_cost = move.get("pp_cost") if move.get("pp_cost") != null else 0
 	var pp_label := Label.new()
 	pp_label.text = "%d PP" % pp_cost

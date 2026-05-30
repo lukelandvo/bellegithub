@@ -2,8 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ukcxus1ukjwx" path="res://scripts/ui/menu_party.gd" id="1_yxxln"]
 
-[node name="Control" type="Control" unique_id=1194580273]
-layout_mode = 3
+[node name="VBoxContainer" type="VBoxContainer" unique_id=1815670977]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

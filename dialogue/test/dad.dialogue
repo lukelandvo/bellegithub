@@ -1,7 +1,11 @@
 ~ start
-Dad: Are you ready to go?
+I am the sample party member. Are you ready to have me follow you?
 - Yes, let's go!
-    do FlagService.set_flag("recruited_dad")
-    => END
+	=> recruited
 - Not yet.
-    => END
+	=> END
+
+~ recruited
+do FlagService.set_flag("recruited_dad")
+do SaveManager.recruit_party_member(2)
+=> END

@@ -1,11 +1,7 @@
 # menu.gd
 # Attach to the root Control of menu.tscn.
-# All layout is defined in the editor — this script handles logic only.
-#
-# Setup:
-#   1. Mark Content node as unique (right-click > Access as Unique Name)
-#   2. Set button text in the inspector: PARTY, INVENTORY, EQUIPMENT, ACTIONS, LOAD
-#   3. Name the tab button container exactly "TabBar"
+# Owns zone state — "tabs" or "content".
+# A/D navigates tabs, S moves into content, W at top of content returns to tabs.
 
 extends Control
 
@@ -25,6 +21,7 @@ const TABS := [
 var _tab_buttons: Array = []
 var _tab_scenes: Array = []
 var _current_tab: int = 0
+var _zone: String = "tabs"  # "tabs" or "content"
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -33,6 +30,8 @@ func _ready() -> void:
 	if tab_bar:
 		for child in tab_bar.get_children():
 			if child is Button:
+				child.focus_mode = Control.FOCUS_NONE
+				child.add_theme_color_override("font_color", STYLE_TEXT_DIM)  # add this
 				var index = _tab_buttons.size()
 				_tab_buttons.append(child)
 				child.pressed.connect(_switch_tab.bind(index))
@@ -54,32 +53,70 @@ func _ready() -> void:
 
 	_switch_tab(0)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if _zone == "tabs":
+		if event.is_action_pressed("move_left"):
+			_switch_tab(wrapi(_current_tab - 1, 0, _tab_scenes.size()))
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("move_right"):
+			_switch_tab(wrapi(_current_tab + 1, 0, _tab_scenes.size()))
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("move_back"):
+			_enter_content()
+			get_viewport().set_input_as_handled()
+	elif _zone == "content":
+		# Let the active tab handle input — it calls back via at_top_of_content()
+		pass
+
 func _switch_tab(index: int) -> void:
 	if index < 0 or index >= _tab_scenes.size():
-		push_error("menu: tab index %d out of range" % index)
 		return
 	if _tab_scenes.is_empty():
 		return
-	if _tab_scenes[_current_tab]:
-		_tab_scenes[_current_tab].visible = false
+
+	# Deactivate current tab content
+	var current = _tab_scenes[_current_tab]
+	if current and current.has_method("deactivate_content"):
+		current.deactivate_content()
+	if current:
+		current.visible = false
 	if not _tab_buttons.is_empty():
 		_set_tab_active(_tab_buttons[_current_tab], false)
 
 	_current_tab = index
+	_zone = "tabs"
 
 	if not _tab_buttons.is_empty():
 		_set_tab_active(_tab_buttons[_current_tab], true)
-	if _tab_scenes[_current_tab]:
-		_tab_scenes[_current_tab].visible = true
-		if _tab_scenes[_current_tab].has_method("refresh"):
-			_tab_scenes[_current_tab].refresh()
+	var next = _tab_scenes[_current_tab]
+	if next:
+		next.visible = true
+		if next.has_method("refresh"):
+			next.refresh()
+
+func _enter_content() -> void:
+	var tab = _tab_scenes[_current_tab]
+	if tab and tab.has_method("activate_content"):
+		_zone = "content"
+		tab.activate_content()
+	# If tab has no content navigation, stay in tabs zone
+
+func at_top_of_content() -> void:
+	# Called by active tab when W is pressed at the first item
+	_zone = "tabs"
+	var tab = _tab_scenes[_current_tab]
+	if tab and tab.has_method("deactivate_content"):
+		tab.deactivate_content()
 
 func _set_tab_active(btn: Button, active: bool) -> void:
 	btn.add_theme_color_override("font_color",
 		STYLE_TEXT_COLOR if active else STYLE_TEXT_DIM)
 
 func on_open() -> void:
-	_switch_tab(_current_tab)
+	_zone = "tabs"
+	_switch_tab(0)
 
 func on_close() -> void:
-	pass
+	var tab = _tab_scenes[_current_tab]
+	if tab and tab.has_method("deactivate_content"):
+		tab.deactivate_content()

@@ -2,11 +2,35 @@
 
 [ext_resource type="Script" uid="uid://pe3n8kbhuuck" path="res://scripts/ui/menu_inventory.gd" id="1_lud7a"]
 
-[node name="Control" type="Control" unique_id=1194580273]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[sub_resource type="LabelSettings" id="LabelSettings_lud7a"]
+font_size = 11
+
+[node name="Control" type="VBoxContainer" unique_id=1698611547]
+offset_top = 51.0
+offset_right = 139.0
+offset_bottom = 98.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 script = ExtResource("1_lud7a")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1685002045]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CapacityLabel" type="Label" parent="VBoxContainer" unique_id=1134831032]
+unique_name_in_owner = true
+layout_mode = 2
+label_settings = SubResource("LabelSettings_lud7a")
+horizontal_alignment = 2
+
+[node name="EmptyLabel" type="Label" parent="VBoxContainer" unique_id=113178345]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Your bag is empty"
+
+[node name="RowContainer" type="VBoxContainer" parent="VBoxContainer" unique_id=1418388891]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3

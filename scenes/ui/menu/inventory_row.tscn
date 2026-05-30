@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://b1hsaaiy0d3wq"]
+
+[ext_resource type="Script" uid="uid://gx0andi83dbk" path="res://scripts/ui/inventory_row.gd" id="1_27lon"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_27lon"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_wqqro"]
+font_size = 13
+
+[sub_resource type="LabelSettings" id="LabelSettings_27lon"]
+font_size = 13
+
+[sub_resource type="LabelSettings" id="LabelSettings_x1320"]
+font_size = 10
+
+[node name="InventoryRow" type="PanelContainer" unique_id=1392261308]
+theme_override_styles/panel = SubResource("StyleBoxFlat_27lon")
+script = ExtResource("1_27lon")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2025335873]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1131021744]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=898252439]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=2081819501]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+label_settings = SubResource("LabelSettings_wqqro")
+
+[node name="QtyLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=722884038]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 0)
+layout_mode = 2
+label_settings = SubResource("LabelSettings_27lon")
+horizontal_alignment = 2
+
+[node name="DescLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=413836824]
+unique_name_in_owner = true
+modulate = Color(0.33660764, 0.3366076, 0.3366076, 1)
+layout_mode = 2
+label_settings = SubResource("LabelSettings_x1320")
+autowrap_mode = 3
