@@ -1,10 +1,11 @@
 # player.gd
 # Attach to the root CharacterBody3D of the player scene.
-# A/D rotate the player in place. W/S move forward/back in facing direction.
-# Camera reads get_facing_angle() to stay behind the player.
 #
-# Idle rotation: cycles through up to 3 idle animations.
-# Leave idle_animation_2 / idle_animation_3 blank to skip them.
+# Movement angle override:
+#   When a camera_area sets override_movement_angle, forward/back moves
+#   along a fixed world axis and left/right strafes perpendicular to it.
+#   The character faces the direction it's moving. No turning in this mode.
+#   Call clear_movement_angle_override() to restore normal tank controls.
 
 extends CharacterBody3D
 
@@ -56,6 +57,12 @@ var _idle_started: bool = false
 
 var _facing_angle: float = 0.0
 
+# Movement angle override — set by camera_area for fixed-camera rooms.
+# When active: forward/back moves along this axis, left/right strafes.
+# Cleared on area exit.
+var _movement_angle_override: float = 0.0
+var _use_movement_override: bool = false
+
 func _ready() -> void:
 	add_to_group("player")
 	floor_max_angle = deg_to_rad(60.0)
@@ -77,13 +84,17 @@ func _exit_tree() -> void:
 func get_facing_angle() -> float:
 	return _facing_angle
 
-# FIX: set _facing_angle and armature together so SceneLoader can correctly
-# orient the player on spawn. Without this, _physics_process overwrites
-# armature.rotation.y with the stale _facing_angle on the very next tick.
 func set_facing_angle(angle_rad: float) -> void:
 	_facing_angle = angle_rad
 	if armature:
 		armature.rotation.y = angle_rad
+
+func set_movement_angle_override(angle_rad: float) -> void:
+	_movement_angle_override = angle_rad
+	_use_movement_override = true
+
+func clear_movement_angle_override() -> void:
+	_use_movement_override = false
 
 func _on_dialogue_started(_resource: Resource) -> void:
 	is_in_dialogue = true
@@ -121,7 +132,31 @@ func _physics_process(delta: float) -> void:
 		return
 
 	is_running = Input.is_action_pressed("run") and can_move
+	var current_speed: float = run_speed if is_running else speed
+	var was_moving: bool = _is_moving
 
+	if _use_movement_override:
+		_physics_process_override(delta, current_speed)
+	else:
+		_physics_process_normal(delta, current_speed)
+
+	if _is_moving and is_on_floor():
+		AudioManager.start_footsteps(is_running)
+		_play_animation(run_animation if is_running else walk_animation,
+				run_anim_speed if is_running else walk_speed, blend_locomotion)
+	else:
+		AudioManager.stop_footsteps()
+		if was_moving and not _is_moving and not _idle_started:
+			_idle_started = true
+			_start_idle_rotation()
+
+	move_and_slide()
+
+	if Input.is_action_just_pressed("interact") and can_move:
+		_try_interact()
+
+func _physics_process_normal(delta: float, current_speed: float) -> void:
+	# Standard tank controls — left/right turns, forward/back moves.
 	if can_move:
 		if Input.is_action_pressed("move_left"):
 			_facing_angle += deg_to_rad(turn_speed) * delta
@@ -132,8 +167,6 @@ func _physics_process(delta: float) -> void:
 		armature.rotation.y = _facing_angle
 
 	var forward = Vector3(sin(_facing_angle), 0.0, cos(_facing_angle))
-	var current_speed: float = run_speed if is_running else speed
-	var was_moving: bool = _is_moving
 
 	if can_move and Input.is_action_pressed("move_forward"):
 		_is_moving = true
@@ -150,20 +183,37 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, deceleration * delta)
 		velocity.z = move_toward(velocity.z, 0.0, deceleration * delta)
 
-	if _is_moving and is_on_floor():
-		AudioManager.start_footsteps(is_running)
-		_play_animation(run_animation if is_running else walk_animation,
-				run_anim_speed if is_running else walk_speed, blend_locomotion)
+func _physics_process_override(delta: float, current_speed: float) -> void:
+	# Fixed-camera controls — movement is relative to the override angle.
+	# forward/back moves along the camera axis, left/right strafes.
+	# Character visually faces whichever direction it's moving.
+	var cam_forward = Vector3(sin(_movement_angle_override), 0.0, cos(_movement_angle_override))
+	var cam_right = Vector3(cos(_movement_angle_override), 0.0, -sin(_movement_angle_override))
+
+	var move_dir := Vector3.ZERO
+	if can_move:
+		if Input.is_action_pressed("move_forward"):
+			move_dir += cam_forward
+		if Input.is_action_pressed("move_back"):
+			move_dir -= cam_forward
+		if Input.is_action_pressed("move_left"):
+			move_dir += cam_right
+		if Input.is_action_pressed("move_right"):
+			move_dir -= cam_right
+
+	if move_dir.length() > 0.01:
+		move_dir = move_dir.normalized()
+		_is_moving = true
+		_idle_started = false
+		_facing_angle = atan2(move_dir.x, move_dir.z)
+		if armature:
+			armature.rotation.y = _facing_angle
+		velocity.x = move_toward(velocity.x, move_dir.x * current_speed, acceleration * delta)
+		velocity.z = move_toward(velocity.z, move_dir.z * current_speed, acceleration * delta)
 	else:
-		AudioManager.stop_footsteps()
-		if was_moving and not _is_moving and not _idle_started:
-			_idle_started = true
-			_start_idle_rotation()
-
-	move_and_slide()
-
-	if Input.is_action_just_pressed("interact") and can_move:
-		_try_interact()
+		_is_moving = false
+		velocity.x = move_toward(velocity.x, 0.0, deceleration * delta)
+		velocity.z = move_toward(velocity.z, 0.0, deceleration * delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
@@ -197,15 +247,10 @@ func disable_movement() -> void:
 	if animation_player:
 		_start_idle_rotation()
 
-# ---------------------------------------------------------------------------
-# Item message — brief floating label, reused by chest and other pickups
-# ---------------------------------------------------------------------------
-
 func _show_item_message(message: String) -> void:
 	var canvas := CanvasLayer.new()
 	canvas.layer = 10
 	get_tree().root.add_child(canvas)
-
 	var label := Label.new()
 	label.text = message
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -214,14 +259,9 @@ func _show_item_message(message: String) -> void:
 	label.offset_top += 80
 	label.offset_bottom += 80
 	canvas.add_child(label)
-
 	var tween := get_tree().create_tween()
 	tween.tween_interval(2.0)
 	tween.tween_callback(canvas.queue_free)
-
-# ---------------------------------------------------------------------------
-# Idle rotation
-# ---------------------------------------------------------------------------
 
 func _start_idle_rotation() -> void:
 	_idle_slot = 0

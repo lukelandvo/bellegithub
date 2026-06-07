@@ -206,7 +206,10 @@ func end_battle() -> void:
 		player.visible = true
 		if _pre_battle_position != Vector3.ZERO:
 			player.global_position = _pre_battle_position
-			player.rotation.y = _pre_battle_rotation
+			if player.has_method("set_facing_angle"):
+				player.set_facing_angle(_pre_battle_rotation)
+			else:
+				player.rotation.y = _pre_battle_rotation
 	_clear_battle_state()
 	await get_tree().create_timer(0.3).timeout
 	cinematic_manager.resume_world()
@@ -253,7 +256,10 @@ func _load_from_save(scene_id: String) -> void:
 		player.visible = true
 	if player and SaveManager.saved_player_position != Vector3.ZERO:
 		player.global_position = SaveManager.saved_player_position
-		player.rotation.y = SaveManager.saved_player_rotation
+		if player.has_method("set_facing_angle"):
+			player.set_facing_angle(SaveManager.saved_player_rotation)
+		else:
+			player.rotation.y = SaveManager.saved_player_rotation
 
 	_save_loading = false
 	FollowerManager.restore_from_paths(SaveManager._pending_follower_paths)
@@ -319,9 +325,13 @@ func _load_scene_internal(scene: PackedScene, spawn_point: String = "", is_battl
 		var spawn: Node = current_scene.find_child(spawn_point, true, false)
 		if spawn and player:
 			player.global_position = spawn.global_position
-			player.rotation.y = spawn.rotation.y
-			if player.get("armature") and player.armature:
-				player.armature.rotation.y = spawn.rotation.y
+			# Use set_facing_angle so _facing_angle, armature, and camera
+			# all stay in sync. Direct rotation.y assignment leaves
+			# _facing_angle stale, causing wrong camera and movement direction.
+			if player.has_method("set_facing_angle"):
+				player.set_facing_angle(spawn.rotation.y)
+			else:
+				player.rotation.y = spawn.rotation.y
 		else:
 			push_warning("SceneLoader: spawn point '%s' not found in scene" % spawn_point)
 	if old_scene:

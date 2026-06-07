@@ -1282,7 +1282,7 @@ _data = {
 &"walk": SubResource("Animation_otiwb")
 }
 
-[node name="follower" type="CharacterBody3D" unique_id=1086701732 node_paths=PackedStringArray("armature", "animation_player") groups=["follower1", "party_follower"]]
+[node name="follower" type="CharacterBody3D" unique_id=1086701732 node_paths=PackedStringArray("armature", "animation_player")]
 script = ExtResource("1_eepjw")
 armature = NodePath("Armature")
 animation_player = NodePath("AnimationPlayer")

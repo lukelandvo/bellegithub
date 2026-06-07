@@ -34,16 +34,16 @@ var _state: State = State.IDLE
 @export var post_defeat_dialogue_seen_flag: String = ""
 
 @export_group("Recruitment")
-@export var recruit_flag: String = ""          # e.g. "recruited_paula" — set via dialogue <<set>>
-@export var follower_scene: PackedScene = null # the follower scene to spawn on recruitment
-@export var npc_name: String = ""              # used in the join message
-@export var join_title: String = ""            # title in dialogue file for the join message; leave blank to skip
+@export var recruit_flag: String = ""
+@export var follower_scene: PackedScene = null
+@export var npc_name: String = ""
+@export var join_title: String = ""
 
 @export_group("Save Point")
-@export var is_save_npc: bool = false         # enable to make this NPC open the save menu after dialogue
-@export var save_point_id: String = ""        # unique ID for this save point e.g. "onett_cabin"
-@export var save_point_name: String = ""      # display name shown in save slot e.g. "Onett Cabin"
-@export var save_menu_scene: PackedScene = null  # drag save_menu.tscn here
+@export var is_save_npc: bool = false
+@export var save_point_id: String = ""
+@export var save_point_name: String = ""
+@export var save_menu_scene: PackedScene = null
 
 @export_group("Animations")
 @export var idle_animation: String = "idle"
@@ -114,17 +114,13 @@ func _ready() -> void:
 	if players.size() > 0:
 		_player = players[0]
 
-	# if already recruited, remove self — follower handles world presence
 	if recruit_flag != "" and FlagService.get_bool(recruit_flag):
 		queue_free()
 		return
 
 	if _victory_flag_key != "" and FlagService.get_bool(_victory_flag_key):
-		if OS.is_debug_build(): print("NPC %s: victory flag '%s' is SET — entering DEFEATED" % [name, _victory_flag_key])
 		_enter_state(State.DEFEATED)
 		return
-	else:
-		if OS.is_debug_build(): print("NPC %s: victory flag '%s' = %s" % [name, _victory_flag_key, FlagService.get_bool(_victory_flag_key)])
 
 	if can_approach and approach_flag != "" and FlagService.get_bool(approach_flag):
 		_approach_done = true
@@ -184,7 +180,6 @@ func _enter_state(new_state: State) -> void:
 				visible = false
 				if interaction_area:
 					interaction_area.set_deferred("monitoring", false)
-				# disable all collision shapes so the NPC has no physical presence
 				for child in get_children():
 					if child is CollisionShape3D:
 						child.set_deferred("disabled", true)
@@ -314,7 +309,6 @@ func on_player_exited() -> void:
 # ---------------------------------------------------------------------------
 
 func interact() -> void:
-	if OS.is_debug_build(): print("NPC interact called on %s, state=%s, dialogue_triggered=%s, player_in_range=%s" % [name, _state, _dialogue_triggered, interaction_area.player_in_range if interaction_area else "no_area"])
 	if _state == State.TALK:
 		return
 	if _dialogue_triggered:
@@ -382,7 +376,7 @@ func _on_dialogue_started(_resource: Resource) -> void:
 func _on_dialogue_ended(_resource: Resource) -> void:
 	_dialogue_triggered = false
 
-	# handle recruit paths before state check — joined balloon fires outside TALK state
+	# Recruitment paths fire before state guard — join balloon fires outside TALK state.
 	if _is_recruiting and not _recruit_done:
 		_finish_recruit()
 		return
@@ -391,15 +385,19 @@ func _on_dialogue_ended(_resource: Resource) -> void:
 		_recruit()
 		return
 
-	if _state != State.TALK:
-		return
-	if BattleSession.pending_encounter != null:
+	# Battle trigger — checked before state guard so the confrontation fires correctly.
+	# Also checks that this NPC actually has an encounter assigned, preventing
+	# other NPCs' dialogue endings from accidentally triggering this battle.
+	if BattleSession.pending_encounter != null and encounter != null and _state == State.TALK:
 		var loaders = get_tree().get_nodes_in_group("scene_loader")
 		if loaders.size() > 0 and loaders[0].has_method("load_battle"):
 			loaders[0].load_battle(BattleSession.pending_encounter)
 		return
 
-	# save npc confirm message just finished — restore to normal
+	if _state != State.TALK:
+		return
+
+	# Save NPC confirm message just finished — restore to normal.
 	if is_save_npc and FlagService.get_bool("save_confirming"):
 		FlagService.clear_flag("save_confirming")
 		await get_tree().create_timer(0.25).timeout
@@ -411,13 +409,13 @@ func _on_dialogue_ended(_resource: Resource) -> void:
 		_enter_state(State.WANDER if can_wander else State.IDLE)
 		return
 
-	# save npc — only open slot menu if player chose yes
+	# Save NPC — only open slot menu if player chose yes.
 	if is_save_npc and FlagService.get_bool("wants_save"):
 		FlagService.clear_flag("wants_save")
 		_open_save_menu()
 		return
 
-	# no battle, no recruit — restore prompt and return to normal state
+	# No battle, no recruit — restore prompt and return to normal state.
 	interaction_area.unlock()
 	_enter_state(State.WANDER if can_wander else State.IDLE)
 
@@ -444,9 +442,7 @@ func _finish_recruit() -> void:
 	if _recruit_done:
 		return
 	_recruit_done = true
-	# register with FollowerManager — it handles spawning across all scene transitions
 	FollowerManager.add_follower(follower_scene)
-	# spawn immediately in current scene
 	var scene_root = get_tree().get_first_node_in_group("scene_loader")
 	if scene_root and scene_root.get("scene_root"):
 		FollowerManager.respawn_followers(scene_root.scene_root, get_tree().get_first_node_in_group("player"))
@@ -478,7 +474,6 @@ func _open_save_menu() -> void:
 	if not save_menu_scene:
 		push_error("npc '%s': is_save_npc is true but no save_menu_scene assigned" % name)
 		return
-	# grab current scene_id from SceneLoader
 	var _current_scene_id = ""
 	var loaders = get_tree().get_nodes_in_group("scene_loader")
 	if loaders.size() > 0:
@@ -486,7 +481,6 @@ func _open_save_menu() -> void:
 	var player_pos = _player.global_position if _player else Vector3.ZERO
 	var player_rot = _player.rotation.y if _player else 0.0
 	SaveManager.activate_save_point(save_point_id, save_point_name, _current_scene_id, player_pos, player_rot)
-	# keep prompt locked and player frozen through the entire save flow
 	if interaction_area:
 		interaction_area.lock()
 	var menu = save_menu_scene.instantiate()
@@ -496,7 +490,6 @@ func _open_save_menu() -> void:
 	menu.open()
 
 func _on_save_completed(_slot: int) -> void:
-	# set flag so _on_dialogue_ended knows this is a confirm message, not another save trigger
 	FlagService.set_flag("save_confirming")
 	if dialogue:
 		DialogueManager.show_dialogue_balloon(dialogue, "save_confirm")

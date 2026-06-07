@@ -2,11 +2,9 @@
 # Drives all combat progression. E advances everything.
 # Attach to a CanvasLayer node in battle.tscn.
 #
-# New turn flow:
-#   INTRO -> COLLECTING (get action from each living party member)
-#         -> RESOLVING (execute queue in speed order)
-#         -> back to COLLECTING for next round
-#   Win/Lose/Flee ends the loop.
+# v4.6: _init_status_boxes now hides status boxes that have no corresponding
+# active party member, preventing phantom party member display (e.g. Dad
+# appearing in battle before being recruited).
 
 extends CanvasLayer
 
@@ -37,18 +35,14 @@ extends CanvasLayer
 @export_group("Game Over")
 @export var game_over_scene: PackedScene
 
-# ---------------------------------------------------------------------------
-# State
-# ---------------------------------------------------------------------------
-
 enum UIState {
 	INTRO,
-	COLLECTING,          # gathering party actions
-	WAITING_FOR_E,       # executing queue, waiting for E to advance
+	COLLECTING,
+	WAITING_FOR_E,
 	SUBMENU_TARGET,
 	SUBMENU_ACTION,
 	SUBMENU_ACTION_TARGET,
-	SUBMENU_ACTION_PARTY_TARGET,  # for HEAL and RESTORE_PP targeting a party member
+	SUBMENU_ACTION_PARTY_TARGET,
 	SUBMENU_ITEMS,
 	SUBMENU_ITEM_TARGET,
 	POST_BATTLE,
@@ -65,29 +59,22 @@ var _main_labels: Array[String] = ["Fight", "Action", "Items", "Run"]
 var _current_labels: Array[String] = []
 var _menu_buttons: Array[Button] = []
 
-var _pending_action_move = null   # ActionMove
+var _pending_action_move = null
 var _pending_item: ItemData = null
 var _current_member_index: int = 0
 var _e_cooldown: bool = false
 var _victory_seeked: bool = false
 
-# Collected party actions for this round — Array of Dictionaries
-# Each: { "member_index", "type", "target", "move", "item" }
 var _collected_actions: Array = []
-var _collection_order: Array = []   # living party indices in slot order
-var _collection_cursor: int = 0     # which member we're currently asking
+var _collection_order: Array = []
+var _collection_cursor: int = 0
 
-# Execution queue for this round — sorted by speed
 var _round_queue: Array = []
 var _queue_cursor: int = 0
 
 var battle_manager: Node
 
 signal _e_pressed
-
-# ---------------------------------------------------------------------------
-# Ready
-# ---------------------------------------------------------------------------
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -109,18 +96,18 @@ func _ready() -> void:
 	ui_state = UIState.INTRO
 	await _typewrite(battle_manager.get_intro_message())
 
-# ---------------------------------------------------------------------------
-# Status boxes
-# ---------------------------------------------------------------------------
-
 func _init_status_boxes() -> void:
-	for i in range(battle_manager.party.size()):
-		if i >= status_boxes.size():
-			break
+	# Hide all boxes first, then populate only those with a real party member.
+	# This prevents unrecruited members (e.g. Dad) from showing in battle.
+	for i in range(status_boxes.size()):
 		var box = status_boxes[i]
 		if not box:
 			continue
+		if i >= battle_manager.party.size():
+			box.visible = false
+			continue
 		var member = battle_manager.party[i]
+		box.visible = true
 		_set_label(box, "NameLabel", member.character_name)
 		_set_label(box, "HPLabel", "HP %d / %d" % [member.current_hp, member.max_hp])
 		_set_label(box, "PPLabel", "PP %d / %d" % [member.current_pp, member.max_pp])
@@ -129,10 +116,6 @@ func _set_label(box: Control, label_name: String, text: String) -> void:
 	var label = box.find_child(label_name, true, false)
 	if label and label is Label:
 		label.text = text
-
-# ---------------------------------------------------------------------------
-# Input
-# ---------------------------------------------------------------------------
 
 func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("interact"):
@@ -163,33 +146,24 @@ func _process(_delta: float) -> void:
 		UIState.INTRO:
 			if is_typing: skip_typing = true
 			else: _begin_collection_phase()
-
 		UIState.COLLECTING:
 			if not is_typing: _confirm_main_action()
-
 		UIState.SUBMENU_TARGET:
 			if not is_typing: _confirm_target_fight()
-
 		UIState.SUBMENU_ACTION:
 			if not is_typing: _confirm_action()
-
 		UIState.SUBMENU_ACTION_TARGET:
 			if not is_typing: _confirm_action_target()
-
 		UIState.SUBMENU_ACTION_PARTY_TARGET:
 			if not is_typing: _confirm_action_party_target()
-
 		UIState.SUBMENU_ITEMS:
 			if not is_typing: _confirm_item_selection()
-
 		UIState.SUBMENU_ITEM_TARGET:
 			if not is_typing: _confirm_item_target()
-
 		UIState.WAITING_FOR_E:
 			if is_typing: skip_typing = true
 			elif _any_anim_playing(): _skip_enemy_anims()
 			else: _advance_queue()
-
 		UIState.POST_BATTLE:
 			if is_typing:
 				skip_typing = true
@@ -202,10 +176,6 @@ func _process(_delta: float) -> void:
 				else:
 					battle_manager._return_to_world()
 
-# ---------------------------------------------------------------------------
-# Game over
-# ---------------------------------------------------------------------------
-
 func _show_game_over() -> void:
 	if not game_over_scene:
 		push_error("BattleUI: no game_over_scene assigned in inspector")
@@ -214,22 +184,16 @@ func _show_game_over() -> void:
 	get_tree().root.add_child(go)
 	go.open()
 
-# ---------------------------------------------------------------------------
-# Collection phase — gather one action per living party member
-# ---------------------------------------------------------------------------
-
 func _begin_collection_phase() -> void:
 	_collected_actions.clear()
 	_collection_order.clear()
 	_collection_cursor = 0
-
 	for i in range(battle_manager.party.size()):
 		if battle_manager.party_alive[i]:
 			_collection_order.append(i)
-
 	if _collection_order.is_empty():
+		push_error("BattleUI: _collection_order empty — no living party members. Check skip.tres is_active and BattleSession.active_party.")
 		return
-
 	_ask_member(_collection_order[0])
 
 func _ask_member(member_index: int) -> void:
@@ -241,7 +205,6 @@ func _advance_collection() -> void:
 	if _collection_cursor < _collection_order.size():
 		_ask_member(_collection_order[_collection_cursor])
 	else:
-		# All party members have chosen — build and execute the round
 		_commit_party_actions()
 		_begin_resolution_phase()
 
@@ -280,17 +243,12 @@ func _try_flee() -> void:
 		ui_state = UIState.DONE
 		battle_manager._return_to_world()
 	else:
-		# Failed flee — still uses this member's turn, skip rest of collection
 		ui_state = UIState.WAITING_FOR_E
 		await _typewrite(result["message"])
 		_collected_actions.clear()
-		_collection_cursor = _collection_order.size()  # skip remaining members
+		_collection_cursor = _collection_order.size()
 		_commit_party_actions()
 		_begin_resolution_phase()
-
-# ---------------------------------------------------------------------------
-# Fight submenu
-# ---------------------------------------------------------------------------
 
 func _open_target_submenu() -> void:
 	var living = battle_manager.get_living_enemies()
@@ -325,10 +283,6 @@ func _record_fight(target_index: int) -> void:
 	})
 	_hide_action_menu()
 	_advance_collection()
-
-# ---------------------------------------------------------------------------
-# Action submenu
-# ---------------------------------------------------------------------------
 
 func _open_action_submenu() -> void:
 	var member = battle_manager.party[_current_member_index]
@@ -420,10 +374,6 @@ func _record_action(target_index: int) -> void:
 	_hide_action_menu()
 	_advance_collection()
 
-# ---------------------------------------------------------------------------
-# Items submenu
-# ---------------------------------------------------------------------------
-
 func _open_items_submenu() -> void:
 	var items = SaveManager.get_inventory()
 	if items.is_empty():
@@ -490,10 +440,6 @@ func _record_item(target_index: int) -> void:
 	_hide_action_menu()
 	_advance_collection()
 
-# ---------------------------------------------------------------------------
-# Resolution phase — execute queue in speed order
-# ---------------------------------------------------------------------------
-
 func _begin_resolution_phase() -> void:
 	_round_queue = battle_manager.build_round_queue()
 	_queue_cursor = 0
@@ -501,7 +447,6 @@ func _begin_resolution_phase() -> void:
 	_advance_queue()
 
 func _advance_queue() -> void:
-	# Check win/lose before advancing
 	if battle_manager.state == battle_manager.BattleState.WIN:
 		_start_post_battle(true)
 		return
@@ -510,14 +455,12 @@ func _advance_queue() -> void:
 		return
 
 	if _queue_cursor >= _round_queue.size():
-		# Round over — start next collection phase
 		_begin_collection_phase()
 		return
 
 	var entry = _round_queue[_queue_cursor]
 	_queue_cursor += 1
 
-	# Skip dead actors
 	if entry["actor"] == "party":
 		if not battle_manager.party_alive[entry["index"]]:
 			_advance_queue()
@@ -566,8 +509,6 @@ func _execute_party_entry(entry: Dictionary) -> void:
 			await _typewrite(announce)
 			await _await_e_press()
 			_trigger_e_cooldown()
-			# For damage moves, target_index is an enemy index.
-			# For heal/restore_pp, target_index is a party member index.
 			var result = battle_manager.do_action(member_index, move, target_index)
 			if result.get("skipped", false):
 				await _typewrite(result["message"])
@@ -624,26 +565,16 @@ func _execute_enemy_entry(entry: Dictionary) -> void:
 		_play_result_anim(result)
 
 	await _typewrite(result["message"])
-	while _any_anim_playing():
-		await get_tree().process_frame
-
-# ---------------------------------------------------------------------------
-# Post battle
-# ---------------------------------------------------------------------------
+	await _await_anims_settled()
 
 func _start_post_battle(won: bool) -> void:
-	while _any_anim_playing():
-		await get_tree().process_frame
+	await _await_anims_settled()
 	if won:
 		post_battle_queue = battle_manager.get_win_messages()
 	else:
 		post_battle_queue = battle_manager.get_lose_messages()
 	ui_state = UIState.POST_BATTLE
 	await _typewrite(post_battle_queue.pop_front())
-
-# ---------------------------------------------------------------------------
-# Animation dispatch
-# ---------------------------------------------------------------------------
 
 func _play_result_anim(result: Dictionary) -> void:
 	var enemy_index = result.get("enemy_index", -1)
@@ -654,7 +585,7 @@ func _play_result_anim(result: Dictionary) -> void:
 		"hurt":
 			if anim_node: anim_node.play_hurt()
 		"death":
-			pass  # owned by BattleManager._start_death_fade()
+			pass
 		"attack":
 			if anim_node:
 				anim_node.play_attack(
@@ -662,6 +593,23 @@ func _play_result_anim(result: Dictionary) -> void:
 					result.get("attack_animation_name", ""),
 					result.get("animation_speed", 1.0)
 				)
+
+func _await_anims_settled(max_frames: int = 240) -> void:
+	# Wait for enemy animations to return to idle, but NEVER block forever.
+	# If an enemy is left in a looping non-idle state (e.g. a misconfigured
+	# enemy with no valid attack animation stuck on its prepare loop), force it
+	# back to combat idle after a cap so the battle can always progress — most
+	# importantly so the defeat screen always appears when the party is KO'd.
+	# 240 frames ≈ 4s at 60fps, far longer than any real attack/hurt clip.
+	var frames := 0
+	while _any_anim_playing():
+		if frames >= max_frames:
+			for anim_node in battle_manager.enemy_anims:
+				if anim_node and not anim_node.get("_is_dead") and anim_node.has_method("play_combat_idle"):
+					anim_node.play_combat_idle()
+			return
+		frames += 1
+		await get_tree().process_frame
 
 func _any_anim_playing() -> bool:
 	for anim_node in battle_manager.enemy_anims:
@@ -680,30 +628,22 @@ func _skip_enemy_anims() -> void:
 	await get_tree().process_frame
 	_advance_queue()
 
-# ---------------------------------------------------------------------------
-# Signal callbacks
-# ---------------------------------------------------------------------------
-
 func _on_hp_updated(member_index: int, current_hp: int, max_hp: int) -> void:
 	if member_index >= status_boxes.size():
 		return
 	var box = status_boxes[member_index]
-	if box:
+	if box and box.visible:
 		_set_label(box, "HPLabel", "HP %d / %d" % [current_hp, max_hp])
 
 func _on_pp_updated(member_index: int, current_pp: int, max_pp: int) -> void:
 	if member_index >= status_boxes.size():
 		return
 	var box = status_boxes[member_index]
-	if box:
+	if box and box.visible:
 		_set_label(box, "PPLabel", "PP %d / %d" % [current_pp, max_pp])
 
 func _on_enemy_hp_updated(_index: int, _current_hp: int, _max_hp: int, _display_name: String) -> void:
 	pass
-
-# ---------------------------------------------------------------------------
-# Menu rendering
-# ---------------------------------------------------------------------------
 
 func _build_menu(labels: Array) -> void:
 	for btn in _menu_buttons:
@@ -738,10 +678,6 @@ func _hide_action_menu() -> void:
 		btn.queue_free()
 	_menu_buttons.clear()
 
-# ---------------------------------------------------------------------------
-# E press
-# ---------------------------------------------------------------------------
-
 func _await_e_press() -> void:
 	await _e_pressed
 
@@ -749,10 +685,6 @@ func _trigger_e_cooldown() -> void:
 	_e_cooldown = true
 	await get_tree().create_timer(0.2).timeout
 	_e_cooldown = false
-
-# ---------------------------------------------------------------------------
-# Typewriter
-# ---------------------------------------------------------------------------
 
 func _typewrite(text: String) -> void:
 	is_typing = true

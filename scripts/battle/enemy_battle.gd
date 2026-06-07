@@ -1,9 +1,6 @@
 # enemy_battle.gd
 # Attach to the root node of your enemy scene.
-# Owns all enemy animation logic. BattleManager calls into this.
-#
-# Adds itself to "world_npc" group so CinematicManager/SceneLoader
-# can freeze it during the confrontation sequence.
+# Owns all enemy animation logic.
 
 extends Node3D
 
@@ -53,10 +50,6 @@ func _ready() -> void:
 		anim_player.animation_finished.connect(_on_anim_player_finished)
 	play_idle()
 
-# ---------------------------------------------------------------------------
-# Freeze / unfreeze — called by SceneLoader
-# ---------------------------------------------------------------------------
-
 func freeze() -> void:
 	if anim_player and anim_player.is_playing():
 		anim_player.pause()
@@ -64,10 +57,6 @@ func freeze() -> void:
 func unfreeze() -> void:
 	if anim_player and not anim_player.is_playing():
 		anim_player.play()
-
-# ---------------------------------------------------------------------------
-# AnimationPlayer callbacks
-# ---------------------------------------------------------------------------
 
 func _on_anim_player_finished(anim_name: String) -> void:
 	if anim_name == combat_idle_animation or anim_name == idle_animation:
@@ -139,6 +128,13 @@ func play_attack(anim_override: int = -1, anim_name_override: String = "", speed
 		anim_name = _pick_weighted_attack()
 
 	if anim_name == "" or not anim_player or not anim_player.has_animation(anim_name):
+		# No valid attack animation resolved. play_prepare() set the prepare
+		# clip to LOOP_LINEAR, so if we just return here the enemy keeps looping
+		# its prepare pose forever and anything waiting on _any_anim_playing()
+		# (BattleUI's enemy-turn wait AND its post-battle/defeat wait) hangs the
+		# whole battle. Always settle back to combat idle first. This mirrors how
+		# play_miss() already handles its own missing-animation case.
+		play_combat_idle()
 		emit_signal("animation_finished")
 		return
 

@@ -1,7 +1,6 @@
 # menu_load.gd
 # Attach to the root Control of menu_load.tscn.
 # Shows 4 save slots. Player selects one to load.
-# Matches the visual style of the other menu tabs.
 
 extends Control
 
@@ -70,7 +69,6 @@ func _build_ui() -> void:
 	vbox.add_child(hint)
 
 	_update_selection()
-	if OS.is_debug_build(): print("menu_load: built %d rows, slot_infos=%s" % [_rows.size(), _slot_infos])
 
 func _build_slot_row(index: int, info: Dictionary) -> Control:
 	var panel := PanelContainer.new()
@@ -166,11 +164,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _confirming:
 		return
-	if OS.is_debug_build(): print("menu_load: _unhandled_input fired, action=interact:%s move_forward:%s move_back:%s" % [
-		event.is_action_pressed("interact"),
-		event.is_action_pressed("move_forward"),
-		event.is_action_pressed("move_back")
-	])
 
 	if event.is_action_pressed("move_forward"):
 		if _selected == 0:
@@ -189,11 +182,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 	elif event.is_action_pressed("interact") and not event.is_echo():
-		if OS.is_debug_build(): print("menu_load: interact pressed, selected=%d, confirming=%s" % [_selected, _confirming])
 		var info = _slot_infos[_selected]
-		if OS.is_debug_build(): print("menu_load: slot info = %s" % info)
 		if info.get("empty", true):
-			if OS.is_debug_build(): print("menu_load: slot is empty, ignoring")
 			return
 		_active = false
 		_confirming = true
@@ -209,9 +199,7 @@ func _find_menu() -> Node:
 	return null
 
 func _load_slot(slot: int) -> void:
-	if OS.is_debug_build(): print("menu_load: loading slot %d" % slot)
 	var success = SaveManager.load_save(slot)
-	if OS.is_debug_build(): print("menu_load: load_save returned %s" % success)
 	if not success:
 		_confirming = false
 		return
@@ -221,5 +209,4 @@ func _load_slot(slot: int) -> void:
 		return
 	var loader = loaders[0]
 	var scene_id = SaveManager.current_scene_id
-	if OS.is_debug_build(): print("menu_load: scene_id = '%s'" % scene_id)
 	loader.call_deferred("_load_from_save", scene_id)

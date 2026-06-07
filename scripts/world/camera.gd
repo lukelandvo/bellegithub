@@ -1,13 +1,15 @@
 # camera.gd
 # Camera3D in main.tscn — always stays behind the player.
-# Reads player facing angle via target.get_facing_angle().
-# Wire target (player CharacterBody3D) in the inspector.
 #
-# Intro system:
-#   When a camera_area calls play_intro(), the camera holds a fixed position
-#   and angle for intro_duration seconds. As soon as the player moves, the
-#   intro cuts short and the camera blends back behind them.
-#   Set intro_duration = 0 to skip the hold and just snap behind the player.
+# Two hold modes exist intentionally:
+#   _hold_position — temporary, used during battle return. Released via release_hold().
+#   _is_fixed      — persistent, set by camera_area when fixed_camera = true.
+#                    Released when entering a non-fixed camera_area.
+#
+# Fixed camera horizontal drift:
+#   When _fixed_x_influence > 0, the camera slides along its own right axis
+#   as the player moves left/right within the room. 0.0 = fully locked,
+#   1.0 = fully follows. Works correctly at any camera angle.
 
 extends Camera3D
 
@@ -44,10 +46,13 @@ var _intro_timer: float = 0.0
 var _intro_start_pos: Vector3 = Vector3.ZERO
 var _intro_start_rot: Vector3 = Vector3.ZERO
 var _hold_position: bool = false
-
-# Tracks the camera angle at the moment the intro blend-back starts,
-# so we can lerp_angle() from there rather than from intro_rotation.y
 var _blend_start_angle_rad: float = 0.0
+
+# Fixed camera state.
+var _is_fixed: bool = false
+var _fixed_base_position: Vector3 = Vector3.ZERO
+var _fixed_x_influence: float = 0.0
+var _fixed_follow_speed: float = 3.0
 
 func _ready() -> void:
 	add_to_group("camera")
@@ -67,39 +72,33 @@ func _ready() -> void:
 		_snap_to_target()
 
 func _process(delta: float) -> void:
-	if not target or _hold_position:
+	if _hold_position:
 		return
 
-	# Always track the desired behind-the-player angle
+	if _is_fixed:
+		_process_fixed(delta)
+		return
+
+	if not target:
+		return
+
 	if target.has_method("get_facing_angle"):
 		var target_angle: float = target.get_facing_angle() + PI
 		_camera_angle_rad = lerp_angle(_camera_angle_rad, target_angle, rotation_follow_speed * delta)
 
 	if _is_in_intro:
 		_intro_timer += delta
-
-		# Early exit: if the player moves, immediately start blending back
 		var player_is_moving: bool = false
 		if target.has_method("get_facing_angle"):
-			# Check if the player's velocity is significant
 			if target.get("velocity") and target.velocity.length() > 0.5:
 				player_is_moving = true
-
 		if player_is_moving or _intro_timer >= intro_duration:
-			# Start blend-back from where the camera currently is
 			_is_in_intro = false
-			# Snap the angle tracker to the intro angle so the lerp
-			# starts from the right place rather than jumping
 			_camera_angle_rad = _blend_start_angle_rad
 		else:
-			# Hold the intro position and angle
 			var t: float = clamp(_intro_timer / max(intro_duration, 0.001), 0.0, 1.0)
 			t = ease(t, intro_ease)
 			global_position = _intro_start_pos.lerp(_desired_position(), t)
-
-			# FIX: use lerp_angle per axis instead of Vector3.lerp for rotation.
-			# Vector3.lerp on degree values spins backward across the 0/360 boundary
-			# (e.g. intro at 350 deg, target at 10 deg = spins 340 deg the wrong way).
 			var target_rot_y: float = rad_to_deg(_camera_angle_rad)
 			rotation_degrees = Vector3(
 				lerpf(_intro_start_rot.x, rotation_x, t),
@@ -110,9 +109,16 @@ func _process(delta: float) -> void:
 		global_position = global_position.lerp(_desired_position(), 1.0 - exp(-follow_speed * delta))
 		rotation_degrees = Vector3(rotation_x, rad_to_deg(_camera_angle_rad), 0.0)
 
-# ---------------------------------------------------------------------------
-# Called by camera_area.gd when entering a new area that has an intro set up
-# ---------------------------------------------------------------------------
+func _process_fixed(delta: float) -> void:
+	# Horizontal drift along the camera's own right axis.
+	# Influence of 0 = fully locked. Influence of 1 = full horizontal follow.
+	if _fixed_x_influence <= 0.0 or not target:
+		return
+	var cam_right: Vector3 = global_transform.basis.x
+	var player_offset: Vector3 = target.global_position - _fixed_base_position
+	var drift: Vector3 = cam_right * (cam_right.dot(player_offset) * _fixed_x_influence)
+	var desired_pos: Vector3 = _fixed_base_position + drift
+	global_position = global_position.lerp(desired_pos, 1.0 - exp(-_fixed_follow_speed * delta))
 
 func play_intro(from_position: Vector3, from_rotation: Vector3, duration: float) -> void:
 	if duration <= 0.0:
@@ -126,10 +132,6 @@ func play_intro(from_position: Vector3, from_rotation: Vector3, duration: float)
 	_is_in_intro = true
 	_intro_timer = 0.0
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 func set_bounds(p_min_x: float, p_max_x: float, p_min_z: float, p_max_z: float) -> void:
 	min_x = p_min_x
 	max_x = p_max_x
@@ -142,6 +144,28 @@ func apply_offset(p_offset_x: float, p_offset_y: float, p_offset_z: float,
 	offset_y = p_offset_y
 	offset_z = p_offset_z
 	rotation_x = p_rotation_x
+
+# ---------------------------------------------------------------------------
+# Fixed camera — used by camera_area when fixed_camera = true.
+# ---------------------------------------------------------------------------
+
+func set_fixed(position: Vector3, rot_degrees: Vector3,
+		x_influence: float = 0.0, fixed_speed: float = 3.0) -> void:
+	_is_fixed = true
+	_is_in_intro = false
+	_fixed_base_position = position
+	_fixed_x_influence = x_influence
+	_fixed_follow_speed = fixed_speed
+	global_position = position
+	rotation_degrees = rot_degrees
+
+func release_fixed() -> void:
+	_is_fixed = false
+	_camera_angle_rad = deg_to_rad(rotation_degrees.y)
+
+# ---------------------------------------------------------------------------
+# Battle hold — temporary, released by SceneLoader after battle return.
+# ---------------------------------------------------------------------------
 
 func snap_to_position(saved_position: Vector3) -> void:
 	global_position = saved_position

@@ -1,14 +1,6 @@
 # AudioManager.gd
 # Autoload singleton — owns all audio playback for BELLE.
 # Add to Project > Project Settings > Autoload as "AudioManager".
-#
-# SFX triggered by string ID. Wire streams to IDs in the inspector.
-# Music crossfades between two internal players so transitions are smooth.
-# Rapid play_music calls queue behind the current crossfade safely.
-# Missing SFX/music IDs are silently skipped during development.
-#
-# play_music(id)        — play by string ID from music_library
-# play_music_stream(stream) — play a raw AudioStream directly (e.g. per-encounter music)
 
 extends Node
 
@@ -48,9 +40,10 @@ var _crossfade_tween: Tween = null
 var _is_crossfading: bool = false
 var _queued_music_id: String = ""
 
-# Used to deduplicate play_music_stream calls the same way _current_music_id
-# deduplicates play_music calls. Cleared when play_music() is called.
 var _current_music_stream: AudioStream = null
+
+# Round-robin index for SFX pool
+var _next_sfx_index: int = 0
 
 func _ready() -> void:
 	_music_a = _make_player(master_music_volume)
@@ -78,16 +71,12 @@ func _process(delta: float) -> void:
 			_footstep_player.stream = footstep_sound
 			_footstep_player.play()
 
-# ---------------------------------------------------------------------------
-# Music — crossfade with queue support
-# ---------------------------------------------------------------------------
-
 func play_music(id: String, loop: bool = true) -> void:
 	if id == _current_music_id:
 		return
 	if not music_library.has(id):
-		return  # silently skip missing music during development
-	_current_music_stream = null  # clear stream tracking when switching to ID-based music
+		return
+	_current_music_stream = null
 	if _is_crossfading:
 		_queued_music_id = id
 		return
@@ -97,17 +86,14 @@ func play_music(id: String, loop: bool = true) -> void:
 		_queued_music_id = ""
 		play_music(next, loop)
 
-# Play a raw AudioStream directly — used for per-encounter battle music assigned
-# in the Encounter resource inspector rather than registered in music_library.
 func play_music_stream(stream: AudioStream, loop: bool = true) -> void:
 	if stream == null:
 		return
 	if stream == _current_music_stream:
 		return
-	_current_music_id = ""  # clear ID tracking when switching to stream-based music
+	_current_music_id = ""
 	_current_music_stream = stream
 	if _is_crossfading:
-		# Don't queue streams — just let the current crossfade finish
 		return
 	await _do_crossfade_stream(stream, loop)
 
@@ -115,20 +101,16 @@ func _do_crossfade(id: String, loop: bool) -> void:
 	var stream: AudioStream = music_library[id]
 	_set_stream_loop(stream, loop)
 	_current_music_id = id
-
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
-		_is_crossfading = false  # reset flag so awaiting coroutine doesn't leave it stuck
-
+		_is_crossfading = false
 	var next_player = _inactive_music_player
 	var prev_player = _active_music_player
 	_active_music_player = next_player
 	_inactive_music_player = prev_player
-
 	next_player.stream = stream
 	next_player.volume_db = -80.0
 	next_player.play()
-
 	_is_crossfading = true
 	_crossfade_tween = get_tree().create_tween()
 	_crossfade_tween.set_parallel(true)
@@ -141,20 +123,16 @@ func _do_crossfade(id: String, loop: bool) -> void:
 
 func _do_crossfade_stream(stream: AudioStream, loop: bool) -> void:
 	_set_stream_loop(stream, loop)
-
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
-		_is_crossfading = false  # reset flag so awaiting coroutine doesn't leave it stuck
-
+		_is_crossfading = false
 	var next_player = _inactive_music_player
 	var prev_player = _active_music_player
 	_active_music_player = next_player
 	_inactive_music_player = prev_player
-
 	next_player.stream = stream
 	next_player.volume_db = -80.0
 	next_player.play()
-
 	_is_crossfading = true
 	_crossfade_tween = get_tree().create_tween()
 	_crossfade_tween.set_parallel(true)
@@ -193,13 +171,9 @@ func _set_stream_loop(stream: AudioStream, loop: bool) -> void:
 	elif stream is AudioStreamWAV:
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
 
-# ---------------------------------------------------------------------------
-# Confrontation sting
-# ---------------------------------------------------------------------------
-
 func play_confrontation(id: String = "battle_confrontation") -> void:
 	if not sfx_library.has(id):
-		return  # silently skip missing confrontation sound during development
+		return
 	var stream = sfx_library.get(id, null)
 	if not stream:
 		return
@@ -216,29 +190,29 @@ func stop_confrontation(fade_duration: float = 0.5) -> void:
 	_confrontation_player.stop()
 	_confrontation_player.volume_db = master_sfx_volume
 
-# ---------------------------------------------------------------------------
-# SFX
-# ---------------------------------------------------------------------------
-
 func play_sfx(id: String) -> void:
 	if not sfx_library.has(id):
-		return  # silently skip missing SFX during development
+		return
 	var stream: AudioStream = sfx_library[id]
 	if not stream:
 		return
-	for p in _sfx_pool:
-		if not p.playing:
-			p.stream = stream
-			p.volume_db = master_sfx_volume
-			p.play()
+	
+	# Round-robin through the pool instead of always stealing index 0
+	var start = _next_sfx_index
+	for j in range(SFX_POOL_SIZE):
+		var i = (start + j) % SFX_POOL_SIZE
+		if not _sfx_pool[i].playing:
+			_sfx_pool[i].stream = stream
+			_sfx_pool[i].volume_db = master_sfx_volume
+			_sfx_pool[i].play()
+			_next_sfx_index = (i + 1) % SFX_POOL_SIZE
 			return
-	_sfx_pool[0].stream = stream
-	_sfx_pool[0].volume_db = master_sfx_volume
-	_sfx_pool[0].play()
-
-# ---------------------------------------------------------------------------
-# Footsteps
-# ---------------------------------------------------------------------------
+	
+	# Pool is fully saturated — steal the next slot anyway
+	_sfx_pool[_next_sfx_index].stream = stream
+	_sfx_pool[_next_sfx_index].volume_db = master_sfx_volume
+	_sfx_pool[_next_sfx_index].play()
+	_next_sfx_index = (_next_sfx_index + 1) % SFX_POOL_SIZE
 
 func start_footsteps(running: bool = false) -> void:
 	_is_running = running
@@ -250,10 +224,6 @@ func stop_footsteps() -> void:
 	_footstep_active = false
 	_footstep_timer = 0.0
 	_is_running = false
-
-# ---------------------------------------------------------------------------
-# Volume control
-# ---------------------------------------------------------------------------
 
 func set_music_volume(volume_db: float) -> void:
 	master_music_volume = volume_db

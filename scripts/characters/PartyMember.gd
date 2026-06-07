@@ -217,7 +217,6 @@ func _level_up() -> void:
 	_check_move_unlocks()
 
 func _check_move_unlocks() -> void:
-	if OS.is_debug_build(): print("PartyMember: checking move unlocks at level %d, keys=%s" % [level, move_unlocks.keys()])
 	if not move_unlocks.has(level):
 		return
 	var path = move_unlocks[level]
@@ -287,10 +286,18 @@ func from_dict(data: Dictionary) -> void:
 	luck = data.get("luck", luck)
 	vitality = data.get("vitality", vitality)
 	iq = data.get("iq", iq)
-	weapon = data.get("weapon", "")
-	head = data.get("head", "")
-	body = data.get("body", "")
-	accessory = data.get("accessory", "")
+	
+	# Validate equipped items against ItemRegistry before restoring
+	var saved_weapon = data.get("weapon", "")
+	var saved_head = data.get("head", "")
+	var saved_body = data.get("body", "")
+	var saved_accessory = data.get("accessory", "")
+	
+	weapon = _validate_equipped_item(saved_weapon, "weapon")
+	head = _validate_equipped_item(saved_head, "head")
+	body = _validate_equipped_item(saved_body, "body")
+	accessory = _validate_equipped_item(saved_accessory, "accessory")
+	
 	var move_paths: Array = data.get("psi_moves", [])
 	if not move_paths.is_empty():
 		psi_moves.clear()
@@ -299,3 +306,19 @@ func from_dict(data: Dictionary) -> void:
 				var move = load(path)
 				if move:
 					psi_moves.append(move)
+				else:
+					push_warning("PartyMember: failed to load move at %s" % path)
+			else:
+				push_warning("PartyMember: move path not found: %s" % path)
+
+func _validate_equipped_item(item_id: String, slot: String) -> String:
+	if item_id == "":
+		return ""
+	var item: ItemData = ItemRegistry.get_item(item_id)
+	if not item:
+		push_warning("PartyMember: unknown item_id '%s' in %s slot — removed" % [item_id, slot])
+		return ""
+	if item.equipment_slot != slot:
+		push_warning("PartyMember: item '%s' is not a %s — removed" % [item_id, slot])
+		return ""
+	return item_id

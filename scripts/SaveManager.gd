@@ -1,10 +1,5 @@
 # SaveManager.gd
 # Autoload singleton — owns party state, inventory, and save/load.
-# Add to Project > Project Settings > Autoload as "SaveManager".
-#
-# Supports 4 save slots. Each slot is a separate file.
-# Slot metadata (save point name, timestamp, playtime) is readable
-# without fully loading the slot — used by the save menu.
 
 extends Node
 
@@ -16,20 +11,12 @@ const BASE_INVENTORY_SIZE: int = 16
 const INVENTORY_PER_MEMBER: int = 8
 const MAX_PARTY_SIZE: int = 4
 
-# ---------------------------------------------------------------------------
-# Party member resource paths — update these to match your project
-# ---------------------------------------------------------------------------
-
 const PARTY_MEMBER_PATHS: Array = [
-	"res://characters/skip/resources/skip.tres",   # slot 0 — Skip
-	"res://characters/dad/resources/dad.tres",    # slot 1 — Dad
-	"",                                     # slot 2 — future
-	"",                                     # slot 3 — future
+	"res://resources/players/skip.tres",
+	"res://resources/players/dad.tres",
+	"",
+	"",
 ]
-
-# ---------------------------------------------------------------------------
-# Party — plain array, populated in _ready()
-# ---------------------------------------------------------------------------
 
 var party: Array = []
 
@@ -40,23 +27,11 @@ var saved_player_position: Vector3 = Vector3.ZERO
 var saved_player_rotation: float = 0.0
 var _pending_follower_paths: Array = []
 
-# ---------------------------------------------------------------------------
-# Playtime tracking
-# ---------------------------------------------------------------------------
-
 var _playtime_seconds: float = 0.0
 var _playtime_active: bool = false
 
-# ---------------------------------------------------------------------------
-# Inventory
-# ---------------------------------------------------------------------------
-
 var _inventory: Array = []
 var _quantities: Dictionary = {}
-
-# ---------------------------------------------------------------------------
-# Ready
-# ---------------------------------------------------------------------------
 
 func _ready() -> void:
 	party.resize(MAX_PARTY_SIZE)
@@ -71,10 +46,6 @@ func _process(delta: float) -> void:
 	if _playtime_active:
 		_playtime_seconds += delta
 
-# ---------------------------------------------------------------------------
-# Playtime
-# ---------------------------------------------------------------------------
-
 func start_playtime() -> void:
 	_playtime_active = true
 
@@ -88,16 +59,8 @@ func get_playtime_string() -> String:
 	var seconds = total % 60
 	return "%02d:%02d:%02d" % [hours, minutes, seconds]
 
-# ---------------------------------------------------------------------------
-# Save path helper
-# ---------------------------------------------------------------------------
-
 func _slot_path(slot: int) -> String:
 	return SAVE_PATH_TEMPLATE % slot
-
-# ---------------------------------------------------------------------------
-# Slot metadata — read without full load, for save menu display
-# ---------------------------------------------------------------------------
 
 func get_slot_info(slot: int) -> Dictionary:
 	var path = _slot_path(slot)
@@ -124,10 +87,6 @@ func get_all_slot_infos() -> Array:
 	for i in range(SAVE_SLOT_COUNT):
 		result.append(get_slot_info(i))
 	return result
-
-# ---------------------------------------------------------------------------
-# Party helpers
-# ---------------------------------------------------------------------------
 
 func get_member(slot: int):
 	if slot < 0 or slot >= party.size():
@@ -162,20 +121,12 @@ func remove_member(slot: int) -> void:
 func is_slot_active(slot: int) -> bool:
 	return party[slot] != null and party[slot].is_active
 
-# Activate a party member by character_id — call from dialogue or world events.
-# Example: SaveManager.recruit_party_member(2) recruits Dad.
 func recruit_party_member(character_id: int) -> void:
 	for i in range(MAX_PARTY_SIZE):
 		if party[i] and party[i].character_id == character_id:
 			party[i].is_active = true
-			if OS.is_debug_build():
-				print("SaveManager: recruited party member with character_id %d in slot %d" % [character_id, i])
 			return
-	push_warning("SaveManager: no PartyMember found with character_id %d — check PARTY_MEMBER_PATHS and dad.tres" % character_id)
-
-# ---------------------------------------------------------------------------
-# Inventory helpers
-# ---------------------------------------------------------------------------
+	push_warning("SaveManager: no PartyMember found with character_id %d" % character_id)
 
 func max_inventory_size() -> int:
 	var extras = max(0, get_active_count() - 1)
@@ -218,20 +169,12 @@ func remove_item(item_id: String, quantity: int = 1) -> bool:
 func get_inventory() -> Array:
 	return _inventory.duplicate()
 
-# ---------------------------------------------------------------------------
-# Save point
-# ---------------------------------------------------------------------------
-
 func activate_save_point(save_point_id: String, save_point_name: String, scene_id: String, player_position: Vector3 = Vector3.ZERO, player_rotation: float = 0.0) -> void:
 	current_save_point_id = save_point_id
 	current_save_point_name = save_point_name
 	current_scene_id = scene_id
 	saved_player_position = player_position
 	saved_player_rotation = player_rotation
-
-# ---------------------------------------------------------------------------
-# Save / Load
-# ---------------------------------------------------------------------------
 
 func save(slot: int) -> void:
 	if FlagService.is_debug():
@@ -293,7 +236,7 @@ func load_save(slot: int) -> bool:
 
 	var version = save_data.get("version", 0)
 	if version != SAVE_VERSION:
-		push_error("SaveManager: save version mismatch in slot %d (got %d, expected %d)" % [slot, version, SAVE_VERSION])
+		push_error("SaveManager: save version mismatch in slot %d" % slot)
 		return false
 
 	current_save_point_id = save_data.get("save_point_id", "")
@@ -311,21 +254,30 @@ func load_save(slot: int) -> bool:
 			party[i] = null
 			continue
 		if party[i] == null:
-			push_error("SaveManager: no PartyMember resource in slot %d — assign path in PARTY_MEMBER_PATHS" % i)
+			push_error("SaveManager: no PartyMember resource in slot %d" % i)
 			continue
 		party[i].from_dict(member_data)
 
+	# Inventory loading with validation against ItemRegistry
 	var inv_data: Dictionary = save_data.get("inventory", {})
-	_inventory = inv_data.get("items", [])
-	_quantities = inv_data.get("quantities", {})
+	var saved_items: Array = inv_data.get("items", [])
+	var saved_quantities: Dictionary = inv_data.get("quantities", {})
+
+	_inventory.clear()
+	_quantities.clear()
+
+	for item_id in saved_items:
+		var item: ItemData = ItemRegistry.get_item(item_id)
+		if item:
+			_inventory.append(item_id)
+			_quantities[item_id] = saved_quantities.get(item_id, 1)
+		else:
+			push_warning("SaveManager: unknown item_id '%s' skipped during load" % item_id)
 
 	FlagService.restore_from_save(save_data.get("flags", {}))
-	# clear transient UI flags that should never persist across saves
 	FlagService.clear_flag("save_menu_open")
 	FlagService.clear_flag("save_confirming")
 	FlagService.clear_flag("wants_save")
-	# store follower paths for restoration after scene load — not restored here
-	# to avoid freeing follower instances before the screen fades to black
 	_pending_follower_paths = save_data.get("followers", [])
 
 	return true
@@ -338,7 +290,6 @@ func delete_save(slot: int) -> void:
 func save_exists(slot: int = -1) -> bool:
 	if slot >= 0:
 		return FileAccess.file_exists(_slot_path(slot))
-	# check if any slot has a save
 	for i in range(SAVE_SLOT_COUNT):
 		if FileAccess.file_exists(_slot_path(i)):
 			return true

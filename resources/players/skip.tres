@@ -6,6 +6,8 @@
 script = ExtResource("1_skucg")
 character_id = 1
 is_active = true
-max_pp = 50
-current_pp = 50
+speed = 2
+move_unlocks = {
+3: "res://characters/skip/resources/heal.tres"
+}
 metadata/_custom_type_script = "uid://cwe24u7dsxroa"
