@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bonsniir18qvl"]
+
+[ext_resource type="Shader" uid="uid://csyt7mevcadyt" path="res://shaders/src/outline.gdshader" id="1_26gch"]
+[ext_resource type="Shader" uid="uid://c3ismfvhtoxrf" path="res://shaders/src/cel-shader-base.gdshader" id="1_krax6"]
+[ext_resource type="Texture2D" uid="uid://crys710ypr2tl" path="res://assets/models/characters/test/frank/frank_head.png" id="2_krax6"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xdm36"]
+render_priority = 0
+shader = ExtResource("1_26gch")
+
+[resource]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_xdm36")
+shader = ExtResource("1_krax6")
+shader_parameter/color = Color(0.68075687, 0.6915943, 0.6700021, 0)
+shader_parameter/base_texture = ExtResource("2_krax6")
+shader_parameter/specular = Color(0, 0, 0, 0)
+shader_parameter/fresnel = Color(0, 0, 0, 0)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)

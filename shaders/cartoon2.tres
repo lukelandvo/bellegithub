@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://d1oevstl22rr1"]
+
+[ext_resource type="Shader" uid="uid://c3ismfvhtoxrf" path="res://shaders/src/cel-shader-base.gdshader" id="1_lh2cc"]
+[ext_resource type="Material" uid="uid://bqn08st33i5fo" path="res://shaders/outline.tres" id="1_xoxl2"]
+[ext_resource type="Texture2D" uid="uid://b2i6305tm5qnp" path="res://assets/models/characters/test/frank/frank_hand2.png" id="2_lh2cc"]
+
+[resource]
+render_priority = 0
+next_pass = ExtResource("1_xoxl2")
+shader = ExtResource("1_lh2cc")
+shader_parameter/color = Color(0.6994097, 0.68245256, 0.68670714, 0)
+shader_parameter/base_texture = ExtResource("2_lh2cc")
+shader_parameter/specular = Color(0.3, 0.3, 0.3, 0.5)
+shader_parameter/fresnel = Color(0.2, 0.2, 0.2, 0.3)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)

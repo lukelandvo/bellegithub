@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://5v70kivexfxd" path="res://scripts/world/player.gd" id="1_76oj4"]
 [ext_resource type="Texture2D" uid="uid://bh28wkrlx1fde" path="res://assets/models/characters/skip/skip_main.png" id="1_yewv4"]
 [ext_resource type="Texture2D" uid="uid://buqh5e2fwm4qu" path="res://assets/models/characters/skip/skip_hair.png" id="2_76oj4"]
+[ext_resource type="Shader" uid="uid://csyt7mevcadyt" path="res://shaders/src/outline.gdshader" id="3_atpat"]
+[ext_resource type="Shader" uid="uid://c3ismfvhtoxrf" path="res://shaders/src/cel-shader-base.gdshader" id="4_kqtwu"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
 radius = 0.16259766
@@ -204,17 +206,65 @@ bind/32/name = &"mixamorig_RightToe_End"
 bind/32/bone = -1
 bind/32/pose = Transform3D(-97.72145, 15.572764, 14.401636, 14.088142, -3.1168625, 98.95335, 15.858431, 98.73082, 0.8522715, -8.105288, -14.363141, 1.2986485)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_atpat"]
-albedo_texture = ExtResource("1_yewv4")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_6eyoc"]
+render_priority = 0
+shader = ExtResource("3_atpat")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kqtwu"]
-albedo_texture = ExtResource("1_yewv4")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_eojnx"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_6eyoc")
+shader = ExtResource("4_kqtwu")
+shader_parameter/color = Color(1, 1, 1, 0)
+shader_parameter/base_texture = ExtResource("1_yewv4")
+shader_parameter/specular = Color(0, 0, 0, 0.5019608)
+shader_parameter/fresnel = Color(0, 0, 0, 0.3019608)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6eyoc"]
-albedo_texture = ExtResource("1_yewv4")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_qgnko"]
+render_priority = 0
+shader = ExtResource("3_atpat")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eojnx"]
-albedo_texture = ExtResource("1_yewv4")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7vyk4"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_qgnko")
+shader = ExtResource("4_kqtwu")
+shader_parameter/color = Color(1, 1, 1, 1)
+shader_parameter/base_texture = ExtResource("1_yewv4")
+shader_parameter/specular = Color(0.3, 0.3, 0.3, 0.5)
+shader_parameter/fresnel = Color(0.2, 0.2, 0.2, 0.3)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2l4js"]
+render_priority = 0
+shader = ExtResource("3_atpat")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_jk2m4"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_2l4js")
+shader = ExtResource("4_kqtwu")
+shader_parameter/color = Color(1, 1, 1, 1)
+shader_parameter/base_texture = ExtResource("1_yewv4")
+shader_parameter/specular = Color(0.3, 0.3, 0.3, 0.5)
+shader_parameter/fresnel = Color(0.2, 0.2, 0.2, 0.3)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xhtjm"]
+render_priority = 0
+shader = ExtResource("3_atpat")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_k4v7y"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_xhtjm")
+shader = ExtResource("4_kqtwu")
+shader_parameter/color = Color(1, 1, 1, 1)
+shader_parameter/base_texture = ExtResource("1_yewv4")
+shader_parameter/specular = Color(0, 0, 0, 0.5019608)
+shader_parameter/fresnel = Color(0, 0, 0, 0.3019608)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3ul8x"]
 resource_name = "Material.006"
@@ -243,8 +293,20 @@ _surfaces = [{
 }]
 blend_shape_mode = 0
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7vyk4"]
-albedo_texture = ExtResource("2_76oj4")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xrqxk"]
+render_priority = 0
+shader = ExtResource("3_atpat")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_g66nw"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_xrqxk")
+shader = ExtResource("4_kqtwu")
+shader_parameter/color = Color(0.7, 0.12, 0.86, 1)
+shader_parameter/base_texture = ExtResource("2_76oj4")
+shader_parameter/specular = Color(0, 0, 0, 0.5019608)
+shader_parameter/fresnel = Color(0, 0, 0, 0.3019608)
+shader_parameter/uv_scale = Vector2(1, 1)
+shader_parameter/uv_offset = Vector2(0, 0)
 
 [sub_resource type="Animation" id="Animation_ke2g5"]
 resource_name = "idle_happy"
@@ -1614,16 +1676,16 @@ bones/32/scale = Vector3(1.0000001, 1.0000001, 1)
 mesh = SubResource("ArrayMesh_76oj4")
 skin = SubResource("Skin_dyp2m")
 skeleton = NodePath("..")
-surface_material_override/0 = SubResource("StandardMaterial3D_atpat")
-surface_material_override/1 = SubResource("StandardMaterial3D_kqtwu")
-surface_material_override/2 = SubResource("StandardMaterial3D_6eyoc")
-surface_material_override/3 = SubResource("StandardMaterial3D_eojnx")
+surface_material_override/0 = SubResource("ShaderMaterial_eojnx")
+surface_material_override/1 = SubResource("ShaderMaterial_7vyk4")
+surface_material_override/2 = SubResource("ShaderMaterial_jk2m4")
+surface_material_override/3 = SubResource("ShaderMaterial_k4v7y")
 
 [node name="skip_hair" type="MeshInstance3D" parent="Armature/Skeleton3D" unique_id=1801680246]
 mesh = SubResource("ArrayMesh_qgnko")
 skin = SubResource("Skin_dyp2m")
 skeleton = NodePath("..")
-surface_material_override/0 = SubResource("StandardMaterial3D_7vyk4")
+surface_material_override/0 = SubResource("ShaderMaterial_g66nw")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=505074108 groups=["player"]]
 libraries/ = SubResource("AnimationLibrary_2l4js")
