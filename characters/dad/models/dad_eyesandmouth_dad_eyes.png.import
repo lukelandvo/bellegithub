@@ -2,14 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c6eum13opeb2s"
+uid="uid://3m8x2ekhgxw3"
 path.s3tc="res://.godot/imported/dad_eyesandmouth_dad_eyes.png-140a804259546a13fa087b1b148d8abb.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
-}
-generator_parameters={
-"md5": "e471bada4eb8df99fb6db94903ca65d6"
 }
 
 [deps]

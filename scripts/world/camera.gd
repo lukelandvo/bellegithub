@@ -149,14 +149,14 @@ func apply_offset(p_offset_x: float, p_offset_y: float, p_offset_z: float,
 # Fixed camera — used by camera_area when fixed_camera = true.
 # ---------------------------------------------------------------------------
 
-func set_fixed(position: Vector3, rot_degrees: Vector3,
+func set_fixed(fixed_position: Vector3, rot_degrees: Vector3,
 		x_influence: float = 0.0, fixed_speed: float = 3.0) -> void:
 	_is_fixed = true
 	_is_in_intro = false
-	_fixed_base_position = position
+	_fixed_base_position = fixed_position
 	_fixed_x_influence = x_influence
 	_fixed_follow_speed = fixed_speed
-	global_position = position
+	global_position = fixed_position
 	rotation_degrees = rot_degrees
 
 func release_fixed() -> void:

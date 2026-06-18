@@ -52,6 +52,9 @@ var _state: State = State.IDLE
 @export var greeting_animation: String = ""
 @export var greeting_flag: String = ""
 
+@export_group("Face")
+@export var face_controller: FaceController
+
 @export_group("Facing")
 @export var body_node_name: String = "Armature"
 @export var facing_offset_degrees: float = 0.0
@@ -372,9 +375,13 @@ func _on_dialogue_started(_resource: Resource) -> void:
 		return
 	interaction_area.lock()
 	_enter_state(State.TALK)
+	if face_controller:
+		face_controller.start_talking()
 
 func _on_dialogue_ended(_resource: Resource) -> void:
 	_dialogue_triggered = false
+	if face_controller:
+		face_controller.stop_talking()
 
 	# Recruitment paths fire before state guard — join balloon fires outside TALK state.
 	if _is_recruiting and not _recruit_done:

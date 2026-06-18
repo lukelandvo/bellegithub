@@ -54,7 +54,9 @@ func stop_playtime() -> void:
 
 func get_playtime_string() -> String:
 	var total = int(_playtime_seconds)
+	@warning_ignore("integer_division")
 	var hours = total / 3600
+	@warning_ignore("integer_division")
 	var minutes = (total % 3600) / 60
 	var seconds = total % 60
 	return "%02d:%02d:%02d" % [hours, minutes, seconds]

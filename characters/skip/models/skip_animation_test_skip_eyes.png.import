@@ -2,17 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dg0f04du22akp"
-path.s3tc="res://.godot/imported/dad_eyesandmouth_dad_hair.png-79f7e251fd0c3c4161727422bf506ee2.s3tc.ctex"
+uid="uid://ccxdje7gk0ang"
+path.s3tc="res://.godot/imported/skip_animation_test_skip_eyes.png-a7c27fd652b3bac706a9e90052cb17b3.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
+generator_parameters={
+"md5": "154edc9be5b8a82d3a4d6543256a6063"
+}
 
 [deps]
 
-source_file="res://characters/dad/models/dad_eyesandmouth_dad_hair.png"
-dest_files=["res://.godot/imported/dad_eyesandmouth_dad_hair.png-79f7e251fd0c3c4161727422bf506ee2.s3tc.ctex"]
+source_file="res://characters/skip/models/skip_animation_test_skip_eyes.png"
+dest_files=["res://.godot/imported/skip_animation_test_skip_eyes.png-a7c27fd652b3bac706a9e90052cb17b3.s3tc.ctex"]
 
 [params]
 

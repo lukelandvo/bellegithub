@@ -7,7 +7,6 @@
 [ext_resource type="Script" uid="uid://cn2qhtj037jkg" path="res://scripts/world/SceneLoader.gd" id="5_ggrwn"]
 [ext_resource type="PackedScene" uid="uid://bu8ry2i1pi5qj" path="res://scenes/world/Critter Canyon/CC_area1.tscn" id="6_6r0uj"]
 [ext_resource type="PackedScene" uid="uid://bepwck26waatq" path="res://scenes/battle/battle.tscn" id="7_j0vxu"]
-[ext_resource type="Script" uid="uid://bs4xbgffifu0c" path="res://scripts/camera_debug.gd" id="8_j0r68"]
 
 [node name="Main" type="Node3D" unique_id=1146602761]
 
@@ -49,4 +48,3 @@ battle_scene = ExtResource("7_j0vxu")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1083002346]
 layer = 100
-script = ExtResource("8_j0r68")

@@ -24,6 +24,7 @@
 [ext_resource type="Texture2D" uid="uid://bovwb41mp1dcs" path="res://terraindata/area1_25.png" id="18_io8uw"]
 [ext_resource type="Texture2D" uid="uid://cpqqlppk5w2dc" path="res://terraindata/area1_SimplePolygon_MultiColorPalette.png" id="20_dq3tn"]
 [ext_resource type="Texture2D" uid="uid://c13immrimwa5s" path="res://terraindata/area1_random-dirt-62.png" id="20_tkrd7"]
+[ext_resource type="PackedScene" uid="uid://dw4cke72300fj" path="res://scenes/characters/skip_blink_test.tscn" id="22_d4fpg"]
 [ext_resource type="Shader" uid="uid://csyt7mevcadyt" path="res://shaders/src/outline.gdshader" id="25_npd87"]
 [ext_resource type="Texture2D" uid="uid://dp7lusdj48pie" path="res://terraindata/area1_yellow.png" id="26_d4fpg"]
 [ext_resource type="Shader" uid="uid://c3ismfvhtoxrf" path="res://shaders/src/cel-shader-base.gdshader" id="26_p4f5w"]
@@ -1698,7 +1699,7 @@ mesh = SubResource("ArrayMesh_tkrd7")
 
 [node name="NPCs" type="Node" parent="." unique_id=258706941]
 
-[node name="face_test_npc" parent="NPCs" unique_id=1086701732 groups=["npc"] instance=ExtResource("6_p4f5w")]
+[node name="face_test_npc" parent="NPCs" unique_id=1399910638 groups=["npc"] instance=ExtResource("6_p4f5w")]
 transform = Transform3D(-0.05059291, 0, -0.99871933, 0, 1, 0, 0.99871933, 0, -0.05059291, 4.3647375, 3.5150647, 12.978997)
 dialogue = ExtResource("10_p4f5w")
 
@@ -1758,6 +1759,9 @@ encounter = ExtResource("16_01bjj")
 defeat_flag = "enemyd_defeated"
 talk_animation = ""
 can_wander = false
+
+[node name="skiptest" parent="NPCs" unique_id=1086701732 instance=ExtResource("22_d4fpg")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3617148, 2.9159966, 11.70378)
 
 [node name="area1" type="Node3D" parent="." unique_id=273415166]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21866918, 0)
